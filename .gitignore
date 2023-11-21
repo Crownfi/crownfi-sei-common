@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Text file backups
+**/*.rs.bk
+
+# Build results
+target/
+dist/
+ts-build/
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# Auto-gen
+.cargo-ok
+node_modules/
