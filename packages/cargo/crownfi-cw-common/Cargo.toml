@@ -6,7 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cw20 = {workspace = true}
 cosmwasm-std = {workspace = true}
+cosmwasm-schema = {workspace = true}
+sei-cosmwasm = {workspace = true}
 borsh = {workspace = true}
 bytemuck = {workspace = true}
 serde = {workspace = true}
