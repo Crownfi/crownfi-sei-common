@@ -7,7 +7,7 @@ use cw20::{Cw20Coin, Cw20ExecuteMsg, Cw20CoinVerified};
 use sei_cosmwasm::SeiMsg;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum FungibleAssetKind {
 	Native(String),
 	CW20(String)
