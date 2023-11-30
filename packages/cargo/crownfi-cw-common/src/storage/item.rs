@@ -123,26 +123,22 @@ impl<'a, T: SerializableItem> AutosavingSerializableItem<'a, T> {
 	}
 }
 impl<'a, T: SerializableItem + Default> AutosavingSerializableItem<'a, T> {
-	pub fn new_or_default(storage: &Rc<RefCell<&'a mut dyn Storage>>, namespace: Vec<u8>) -> Result<Option<Self>, StdError> {
+	pub fn new_or_default(storage: &Rc<RefCell<&'a mut dyn Storage>>, namespace: Vec<u8>) -> Result<Self, StdError> {
 		let Some(data) = storage.borrow().get(&namespace) else {
 			return Ok(
-				Some(
-					Self {
-						value: T::default(),
-						namespace,
-						storage: storage.clone()
-					}
-				)
-			);
-		};
-		Ok(
-			Some(
 				Self {
-					value: T::deserialize(&data)?,
+					value: T::default(),
 					namespace,
 					storage: storage.clone()
 				}
-			)
+			);
+		};
+		Ok(
+			Self {
+				value: T::deserialize(&data)?,
+				namespace,
+				storage: storage.clone()
+			}
 		)
 	}
 }

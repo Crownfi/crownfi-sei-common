@@ -43,7 +43,7 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 	pub fn get_or_default_autosaving(
 		&self,
 		key: &K
-	) -> StdResult<Option<AutosavingSerializableItem<'exec, V>>> where V: Default {
+	) -> StdResult<AutosavingSerializableItem<'exec, V>> where V: Default {
 		AutosavingSerializableItem::new_or_default(
 			&self.storage.get_mutable_shared().expect("get_autosaving should only be used in a mutable context"),
 			self.key(key)
