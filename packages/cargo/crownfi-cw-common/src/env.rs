@@ -10,8 +10,8 @@ pub struct ClonableEnvInfo<'exec, Q: CustomQuery = Empty> {
 	pub querier: Rc<QuerierWrapper<'exec, Q>>,
 	pub env: Rc<Env>
 }
-impl<'exec> ClonableEnvInfo<'exec> {
-	pub fn new(deps: Deps<'exec>, env: Env) -> Self {
+impl<'exec, Q: CustomQuery> ClonableEnvInfo<'exec, Q> {
+	pub fn new(deps: Deps<'exec, Q>, env: Env) -> Self {
 		ClonableEnvInfo {
 			storage: Rc::new(deps.storage),
 			api: Rc::new(deps.api),
@@ -30,8 +30,8 @@ pub struct ClonableEnvInfoMut<'exec, Q: CustomQuery = Empty> {
 	pub env: Rc<Env>
 }
 
-impl<'exec> ClonableEnvInfoMut<'exec> {
-	pub fn new(deps: DepsMut<'exec>, env: Env) -> Self {
+impl<'exec, Q: CustomQuery> ClonableEnvInfoMut<'exec, Q> {
+	pub fn new(deps: DepsMut<'exec, Q>, env: Env) -> Self {
 		ClonableEnvInfoMut {
 			storage: Rc::new(RefCell::new(deps.storage)),
 			api: Rc::new(deps.api),
