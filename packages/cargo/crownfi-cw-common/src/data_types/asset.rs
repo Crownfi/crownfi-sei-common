@@ -1,9 +1,9 @@
 
 use std::fmt;
 
-use cosmwasm_std::{Addr, Coin, CosmosMsg, BankMsg, WasmMsg, to_json_binary};
+use cosmwasm_std::{Addr, Coin, CosmosMsg, BankMsg, WasmMsg, to_json_binary, QuerierWrapper, CustomQuery, StdError, Uint128};
 use cosmwasm_schema::{cw_serde, schemars::{schema::Schema, gen::SchemaGenerator, JsonSchema}};
-use cw20::{Cw20Coin, Cw20ExecuteMsg, Cw20CoinVerified};
+use cw20::{Cw20Coin, Cw20ExecuteMsg, Cw20CoinVerified, Cw20QueryMsg, BalanceResponse as Cw20BalanceResponse};
 use sei_cosmwasm::SeiMsg;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -13,7 +13,7 @@ pub enum FungibleAssetKind {
 	CW20(String)
 }
 impl FungibleAssetKind {
-	pub fn into_asset(self, amount: u128) -> FungibleAsset {
+	pub fn into_asset<A: Into<Uint128>>(self, amount: A) -> FungibleAsset {
 		match self {
 			FungibleAssetKind::Native(denom) => {
 				FungibleAsset::Native(
@@ -23,6 +23,20 @@ impl FungibleAssetKind {
 			FungibleAssetKind::CW20(address) => {
 				FungibleAsset::CW20(
 					Cw20Coin { address, amount: amount.into() }
+				)
+			},
+		}
+	}
+	pub fn query_balance<Q: CustomQuery>(&self, querier: &QuerierWrapper<Q>, holder: &Addr) -> Result<Uint128, StdError> {
+		match self {
+			FungibleAssetKind::Native(denom) => {
+				Ok(querier.query_balance(holder, denom)?.amount)
+			},
+			FungibleAssetKind::CW20(address) => {
+				Ok(
+					querier.query_wasm_smart::<Cw20BalanceResponse>(
+						address, &Cw20QueryMsg::Balance { address: holder.into() }
+					)?.balance
 				)
 			},
 		}
