@@ -7,6 +7,8 @@ use serde::{de::DeserializeOwned as SerdeDeserializeOwned, Serialize as SerdeSer
 
 pub mod item;
 pub mod map;
+pub mod vec;
+pub mod queue;
 
 pub fn concat_byte_array_pairs(a: &[u8], b: &[u8]) -> Vec<u8> {
 	let mut result = Vec::with_capacity(a.len() + b.len());

@@ -19,13 +19,22 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 			value_type: PhantomData {}
 		}
 	}
+	#[inline]
 	pub fn key(&self, key: &K) -> Vec<u8> {
 		concat_byte_array_pairs(
 			self.namespace, key.serialize().expect("key serialization should never fail").as_ref()
 		)
 	}
+	#[inline]
+	pub fn get_raw_bytes(&self, key: &K) -> Option<Vec<u8>> {
+		self.storage.get(&self.key(key))
+	}
+	#[inline]
+	pub(crate) fn set_raw_bytes(&self, key: &K, bytes: &[u8]) {
+		self.storage.set(&self.key(key), bytes)
+	}
 	pub fn get(&self, key: &K) -> StdResult<Option<V>> {
-		let Some(data) = self.storage.get(&self.key(key)) else {
+		let Some(data) = self.get_raw_bytes(key) else {
 			return Ok(None);
 		};
 		Ok(

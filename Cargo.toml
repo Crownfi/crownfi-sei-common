@@ -13,6 +13,6 @@ cosmwasm-schema = "1"
 sei-cosmwasm = "0.4"
 thiserror = "1"
 borsh = "1"
-bytemuck = "1"
+bytemuck = {version = "1", features = ["derive"]}
 serde = "1"
 bincode = "1"
