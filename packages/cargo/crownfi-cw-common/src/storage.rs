@@ -1,8 +1,8 @@
-use std::{mem::size_of, rc::Rc, cell::RefCell};
+use std::{rc::Rc, cell::{RefCell, Ref}};
 
-use borsh::{BorshDeserialize, BorshSerialize};
-use bytemuck::{try_from_bytes, Pod, bytes_of};
-use cosmwasm_std::{StdError, Addr, Storage};
+
+
+use cosmwasm_std::{StdError, Storage};
 use serde::{de::DeserializeOwned as SerdeDeserializeOwned, Serialize as SerdeSerialize};
 
 pub mod item;
@@ -18,11 +18,17 @@ pub fn concat_byte_array_pairs(a: &[u8], b: &[u8]) -> Vec<u8> {
 }
 
 
+
 #[derive(Debug, Clone)]
 pub enum SerializationResult<'a> {
 	Ref(&'a [u8]),
 	Owned(Rc<[u8]>),
 	OwnedMut(Vec<u8>)
+}
+impl Default for SerializationResult<'_> {
+	fn default() -> Self {
+		Self::Ref(b"")
+	}
 }
 impl AsRef<[u8]> for SerializationResult<'_> {
 	fn as_ref(&self) -> &[u8] {
@@ -77,6 +83,24 @@ impl<T> SerializableItem for T where T: SerdeDeserializeOwned + SerdeSerialize {
 		})
 	}
 }
+pub(crate) fn lexicographic_next(bytes: &[u8]) -> Vec<u8> {
+	let mut result = Vec::from(bytes);
+	let mut add = true;
+	for val in result.iter_mut().rev() {
+		(*val, add) = val.overflowing_add(1);
+		if !add {
+			break;
+		}
+	}
+	if add {
+		// Turns out all the array values where u8::MAX, the only lexicographically next value is a larger array.
+		// This also allows for an empty array.
+		result.fill(u8::MAX);
+		result.push(0);
+	}
+	result
+}
+
 
 #[derive(Clone)]
 pub enum MaybeMutableStorage<'exec> {
@@ -136,6 +160,62 @@ impl<'exec> MaybeMutableStorage<'exec> {
 			MaybeMutableStorage::MutableShared(storage) => storage.borrow_mut().remove(key),
 		}
 	}
+	/// Returns the lexicographically next key/value pair after the specified key.
+	/// Used for implementing double-ended iterators and to allow multiple mutable iterators to exist at once.
+	pub fn next_record(&self, key: &[u8], before: Option<&[u8]>) -> Option<(Vec<u8>, Vec<u8>)> {
+		let next_key = lexicographic_next(key);
+		match self {
+			MaybeMutableStorage::Immutable(storage) => {
+				// I have no idea why this behaviour isn't just already exposed.
+				storage.range(
+					Some(&next_key),
+					before,
+					// It seems like this only exists because the cosmos team didn't know `DoubleEndedIterator` existed
+					cosmwasm_std::Order::Ascending
+				).next()
+			},
+			MaybeMutableStorage::MutableShared(storage) => {
+				// Implementing iterators on top of this is far from ideal, but the core issue is that unlike solana,
+				// where I'm given a byte array which I can parition however I want, I have to juggle around a single
+				// mutable reference. Which means there's a lot more BS to go through in order to, for example,
+				// immutabily iterate over one mapping while mutabily iterating over another.
+				// I miss being able to RefMut::map_split(account_info.data.borrow_mut(), ...)
+				storage.borrow().range(
+					Some(&next_key),
+					before,
+					cosmwasm_std::Order::Ascending
+				).next()
+			},
+		}
+	}
+
+	/// Returns the lexicographically next key/value pair after the specified key.
+	/// Used for implementing double-ended iterators and to allow multiple mutable iterators to exist at once.
+	pub fn prev_record(&self, key: &[u8], after: Option<&[u8]>) -> Option<(Vec<u8>, Vec<u8>)> {
+		// ditto statements as above
+		match self {
+			MaybeMutableStorage::Immutable(storage) => {
+				storage.range(
+					after,
+					Some(key),
+					cosmwasm_std::Order::Ascending
+				).next()
+			},
+			MaybeMutableStorage::MutableShared(storage) => {
+				storage.borrow().range(
+					after,
+					Some(key),
+					cosmwasm_std::Order::Descending
+				).next()
+			},
+		}
+	}
+}
+
+
+pub enum MaybeMutableStorageRef<'a> {
+	Immutable(&'a dyn Storage),
+	MutableShared(Ref<'a, &'a mut dyn Storage>)
 }
 
 // Originally I wanted to do either bytemuck and/or borsh and have the option to switch between the 2 with borsh being
