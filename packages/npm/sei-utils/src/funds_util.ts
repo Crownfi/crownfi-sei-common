@@ -1,5 +1,5 @@
 import { Coin } from "@cosmjs/amino";
-import { SeiChainId, getDefaultNetworkConfig } from "./chain_config";
+import { SeiChainId, getDefaultNetworkConfig } from "./chain_config.js";
 
 /**
  * Used for `Array.prototype.sort` when dealing with `Coin[]`'s

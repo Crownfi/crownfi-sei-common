@@ -1,13 +1,13 @@
 import { AccountData, Coin, encodeSecp256k1Pubkey } from "@cosmjs/amino"
 import { CosmWasmClient, ExecuteInstruction, InstantiateResult, MigrateResult, MsgExecuteContractEncodeObject, SigningCosmWasmClient, UploadResult } from "@cosmjs/cosmwasm-stargate"
 import { KNOWN_SEI_PROVIDER_INFO, KnownSeiProviders, SeiWallet, getCosmWasmClient, getQueryClient, getSigningCosmWasmClient } from "@crownfi/sei-js-core"
-import { seiUtilEventEmitter } from "./events";
+import { seiUtilEventEmitter } from "./events.js";
 import { EncodeObject, OfflineSigner } from "@cosmjs/proto-signing";
-import { SeiChainNetConfig, getDefaultNetworkConfig } from "./chain_config";
+import { SeiChainNetConfig, getDefaultNetworkConfig } from "./chain_config.js";
 import { GasPrice, calculateFee, isDeliverTxFailure } from "@cosmjs/stargate";
-import { nativeDenomSortCompare } from "./funds_util";
-import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx";
-import { Addr } from "./common_sei_types";
+import { nativeDenomSortCompare } from "./funds_util.js";
+import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx.js";
+import { Addr } from "./common_sei_types.js";
 
 export type MaybeSelectedProviderString = KnownSeiProviders | "seed-wallet" | null;
 export type MaybeSelectedProvider = KnownSeiProviders | {seed: string} | null;

@@ -1,5 +1,5 @@
-import { ClientEnv } from "./client_env";
-import { seiUtilEventEmitter } from "./events";
+import { ClientEnv } from "./client_env.js";
+import { seiUtilEventEmitter } from "./events.js";
 
 export declare const KNOWN_SEI_NETWORKS: readonly ["sei-chain", "atlantic-2", "pacific-1"];
 export type KnownSeiChainId = typeof KNOWN_SEI_NETWORKS[number];
