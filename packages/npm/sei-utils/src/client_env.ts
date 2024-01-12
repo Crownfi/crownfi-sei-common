@@ -1,10 +1,10 @@
 import { AccountData, Coin, encodeSecp256k1Pubkey } from "@cosmjs/amino"
-import { CosmWasmClient, ExecuteInstruction, InstantiateResult, MigrateResult, MsgExecuteContractEncodeObject, SigningCosmWasmClient, UploadResult } from "@cosmjs/cosmwasm-stargate"
+import { CosmWasmClient, ExecuteInstruction, ExecuteResult, InstantiateResult, MigrateResult, MsgExecuteContractEncodeObject, SigningCosmWasmClient, UploadResult } from "@cosmjs/cosmwasm-stargate"
 import { KNOWN_SEI_PROVIDER_INFO, KnownSeiProviders, SeiWallet, getCosmWasmClient, getQueryClient, getSigningCosmWasmClient } from "@crownfi/sei-js-core"
 import { seiUtilEventEmitter } from "./events.js";
 import { EncodeObject, OfflineSigner } from "@cosmjs/proto-signing";
 import { SeiChainNetConfig, getDefaultNetworkConfig } from "./chain_config.js";
-import { GasPrice, calculateFee, isDeliverTxFailure } from "@cosmjs/stargate";
+import { DeliverTxResponse, GasPrice, calculateFee, isDeliverTxFailure } from "@cosmjs/stargate";
 import { nativeDenomSortCompare } from "./funds_util.js";
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx.js";
 import { Addr } from "./common_sei_types.js";
@@ -223,7 +223,7 @@ export class ClientEnv {
 		return (this.wasmClient instanceof SigningCosmWasmClient) && this.account != null;
 	}
 
-	async signAndSend(msgs: EncodeObject[]) {
+	async signAndSend(msgs: EncodeObject[]): Promise<DeliverTxResponse> {
 		if (!this.isSignable()) {
 			throw new Error("Cannot execute transactions - " + this.readonlyReason);
 		}
@@ -238,15 +238,15 @@ export class ClientEnv {
 		})
 		return result
 	}
-	async executeContract(contractAddress: string, msg: object, funds?: Coin[]) {
+	async executeContract(instruction: ExecuteInstruction): Promise<ExecuteResult> {
 		if (!this.isSignable()) {
 			throw new Error("Cannot execute transactions - " + this.readonlyReason);
 		}
-		if (funds) {
-			// 🙄🙄🙄🙄
-			funds.sort(nativeDenomSortCompare);
+		if (instruction.funds) {
+			// I don't understand why this isn't already taken care of 🙄
+			(instruction.funds as Coin[]).sort(nativeDenomSortCompare);
 		}
-		const result = await this.wasmClient.execute(this.account.address, contractAddress, msg, "auto", undefined, funds)
+		const result = await this.wasmClient.executeMultiple(this.account.address, [instruction], "auto");
 		seiUtilEventEmitter.emit("transactionConfirmed", {
 			chainId: this.chainId,
 			sender: this.account.address,
@@ -254,13 +254,13 @@ export class ClientEnv {
 		});
 		return result;
 	}
-	async executeContractMulti(instructions: ExecuteInstruction[]) {
+	async executeContractMulti(instructions: ExecuteInstruction[]): Promise<ExecuteResult> {
 		if (!this.isSignable()) {
 			throw new Error("Cannot execute transactions - " + this.readonlyReason);
 		}
 		for(let i = 0; i < instructions.length; i += 1){
 			if (instructions[i].funds) {
-				// 🙄🙄🙄🙄🙄🙄🙄🙄🙄🙄🙄🙄🙄🙄🙄🙄
+				// I don't understand why this isn't already taken care of 🙄
 				instructions[i].funds = (instructions[i].funds as Coin[]).sort(nativeDenomSortCompare);
 			}
 		}
@@ -310,16 +310,11 @@ export class ClientEnv {
 		return this.simulateTransactionButWithActuallyUsefulInformation(msgs);
 	}
 	async simulateContract(
-		contractAddress: string, msg: object, funds?: Coin[]
+		instruction: ExecuteInstruction
 	): Promise<SimulateResponse> {
 		if (!this.isSignable()) {
 			throw new Error("Cannot execute transactions - " + this.readonlyReason);
 		}
-		const instruction: ExecuteInstruction = {
-			contractAddress: contractAddress,
-			msg: msg,
-			funds: funds,
-		};
 		return this.simulateContractMulti([instruction]);
 	  }
 	async queryContract(contractAddress: string, query: object): Promise<any> {

@@ -10,9 +10,18 @@ cw2 = "1"
 cw20 = "1"
 cosmwasm-std = "1"
 cosmwasm-schema = "1"
+schemars = "0.8"
 sei-cosmwasm = "0.4"
 thiserror = "1"
 borsh = "1"
-bytemuck = {version = "1", features = ["derive"]}
+bytemuck = { version = "1", features = ["derive"] }
 serde = "1"
 bincode = "1"
+bpaf = { version = "0.9", features = ["derive"] }
+which = "5"
+serde_json = { version = "1" }
+convert_case = "0.6"
+itertools = "0.12"
+deunicode = "1"
+lazy-regex = "3"
+regex = "1"

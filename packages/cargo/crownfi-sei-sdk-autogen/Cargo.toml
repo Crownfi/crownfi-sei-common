@@ -1,0 +1,21 @@
+[package]
+name = "crownfi-sei-sdk-autogen"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cosmwasm-std = {workspace = true}
+cosmwasm-schema = {workspace = true}
+sei-cosmwasm = {workspace = true}
+serde = {workspace = true}
+schemars = {workspace = true}
+bpaf = {workspace = true}
+which = {workspace = true}
+serde_json = {workspace = true}
+convert_case = {workspace = true}
+thiserror = {workspace = true}
+itertools = {workspace = true}
+deunicode = {workspace = true}
+lazy-regex = {workspace = true}
