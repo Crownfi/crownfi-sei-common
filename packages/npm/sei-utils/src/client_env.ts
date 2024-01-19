@@ -1,5 +1,5 @@
-import { AccountData, Coin, encodeSecp256k1Pubkey } from "@cosmjs/amino"
-import { CosmWasmClient, ExecuteInstruction, ExecuteResult, InstantiateResult, MigrateResult, MsgExecuteContractEncodeObject, SigningCosmWasmClient, UploadResult } from "@cosmjs/cosmwasm-stargate"
+import { AccountData, Coin, StdFee, encodeSecp256k1Pubkey } from "@cosmjs/amino"
+import { CosmWasmClient, ExecuteInstruction, InstantiateResult, MigrateResult, MsgExecuteContractEncodeObject, SigningCosmWasmClient, UploadResult } from "@cosmjs/cosmwasm-stargate"
 import { KNOWN_SEI_PROVIDER_INFO, KnownSeiProviders, SeiWallet, getCosmWasmClient, getQueryClient, getSigningCosmWasmClient } from "@crownfi/sei-js-core"
 import { seiUtilEventEmitter } from "./events.js";
 import { EncodeObject, OfflineSigner } from "@cosmjs/proto-signing";
@@ -9,6 +9,7 @@ import { nativeDenomSortCompare } from "./funds_util.js";
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx.js";
 import { Addr } from "./common_sei_types.js";
 
+// TODO: New provider: "read-only-address"
 export type MaybeSelectedProviderString = KnownSeiProviders | "seed-wallet" | null;
 export type MaybeSelectedProvider = KnownSeiProviders | {seed: string} | null;
 
@@ -223,14 +224,20 @@ export class ClientEnv {
 		return (this.wasmClient instanceof SigningCosmWasmClient) && this.account != null;
 	}
 
-	async signAndSend(msgs: EncodeObject[]): Promise<DeliverTxResponse> {
+	async signAndSend(
+		msgs: EncodeObject[],
+		memo: string = "",
+		fee: "auto" | StdFee = "auto"
+	): Promise<DeliverTxResponse> {
 		if (!this.isSignable()) {
 			throw new Error("Cannot execute transactions - " + this.readonlyReason);
 		}
-		const result = await this.wasmClient.signAndBroadcast(this.account.address, msgs, "auto")
+		const result = await this.wasmClient.signAndBroadcast(this.account.address, msgs, fee, memo)
+		/*
 		if (isDeliverTxFailure(result)) {
 			throw new TransactionError(result.code, result.transactionHash, result.rawLog + "")
 		}
+		*/
 		seiUtilEventEmitter.emit("transactionConfirmed", {
 			chainId: this.chainId,
 			sender: this.account.address,
@@ -238,39 +245,23 @@ export class ClientEnv {
 		})
 		return result
 	}
-	async executeContract(instruction: ExecuteInstruction): Promise<ExecuteResult> {
-		if (!this.isSignable()) {
-			throw new Error("Cannot execute transactions - " + this.readonlyReason);
-		}
-		if (instruction.funds) {
-			// I don't understand why this isn't already taken care of 🙄
-			(instruction.funds as Coin[]).sort(nativeDenomSortCompare);
-		}
-		const result = await this.wasmClient.executeMultiple(this.account.address, [instruction], "auto");
-		seiUtilEventEmitter.emit("transactionConfirmed", {
-			chainId: this.chainId,
-			sender: this.account.address,
-			result
-		});
-		return result;
+	executeContract(
+		instruction: ExecuteInstruction,
+		memo: string = "",
+		fee: "auto" | StdFee = "auto"
+	): Promise<DeliverTxResponse> {
+		return this.executeContractMulti([instruction], memo, fee);
 	}
-	async executeContractMulti(instructions: ExecuteInstruction[]): Promise<ExecuteResult> {
-		if (!this.isSignable()) {
-			throw new Error("Cannot execute transactions - " + this.readonlyReason);
-		}
-		for(let i = 0; i < instructions.length; i += 1){
-			if (instructions[i].funds) {
-				// I don't understand why this isn't already taken care of 🙄
-				instructions[i].funds = (instructions[i].funds as Coin[]).sort(nativeDenomSortCompare);
-			}
-		}
-		const result = await this.wasmClient.executeMultiple(this.account.address, instructions, "auto");
-		seiUtilEventEmitter.emit("transactionConfirmed", {
-			chainId: this.chainId,
-			sender: this.account.address,
-			result
-		});
-		return result;
+	executeContractMulti(
+		instructions: ExecuteInstruction[],
+		memo: string = "",
+		fee: "auto" | StdFee = "auto"
+	): Promise<DeliverTxResponse> {
+		return this.signAndSend(
+			this.execIxsToCosmosMsgs(instructions),
+			memo,
+			fee
+		);
 	}
 	async simulateTransactionButWithActuallyUsefulInformation(messages: readonly EncodeObject[]): Promise<SimulateResponse> {
 		// Because cosmjs says: "Why would anyone want any information other than estimated gas from a simulation?"
@@ -302,8 +293,8 @@ export class ClientEnv {
 					value: MsgExecuteContract.fromPartial({
 					sender: this.account.address,
 					contract: i.contractAddress,
-					msg: Buffer.from(JSON.stringify(i.msg)),
-					funds: [...(i.funds || [])],
+					msg: i.msg instanceof Uint8Array ? i.msg : Buffer.from(JSON.stringify(i.msg)),
+					funds: i.funds?.length ? i.funds as Coin[] : [],
 				}),
 			}
 		});
@@ -337,6 +328,26 @@ export class ClientEnv {
 			});
 			return BigInt(result.balance!.amount);
 		}
+	}
+	execIxsToCosmosMsgs(instructions: ExecuteInstruction[]): MsgExecuteContractEncodeObject[] {
+		if (!this.isSignable()) {
+			throw new Error("Cannot execute transactions - " + this.readonlyReason);
+		}
+		return instructions.map((i) => {
+			if (i.funds) {
+				// 🙄🙄🙄🙄
+				i.funds = (i.funds as Coin[]).sort(nativeDenomSortCompare);
+			}
+			return {
+				typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+					value: MsgExecuteContract.fromPartial({
+					sender: this.account.address,
+					contract: i.contractAddress,
+					msg: i.msg instanceof Uint8Array ? i.msg : Buffer.from(JSON.stringify(i.msg)),
+					funds: [...(i.funds || [])],
+				}),
+			}
+		});
 	}
 	async getSupplyOf(unifiedDenom: string): Promise<bigint> {
 		if (unifiedDenom.startsWith("cw20/")) {

@@ -1,14 +1,38 @@
 import { CosmWasmClient, ExecuteInstruction, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate"
-import { Addr } from "./common_sei_types.js";
+import { Addr, ContractVersionInfo } from "./common_sei_types.js";
 import { Coin } from "@cosmjs/amino";
 
+const CONTRACT_INFO_KEY = Buffer.from("contract_info");
+
+/**
+ * A class which is usually extended upon to generate a contract API
+ */
 export class ContractBase {
 	address: Addr;
 	endpoint: CosmWasmClient;
+	/**
+	 * @param endpoint The cosmwasm client
+	 * @param address Contract address
+	 */
 	constructor(endpoint: CosmWasmClient, address: Addr) {
 		this.endpoint = endpoint;
 		this.address = address;
 	}
+	/**
+	 * Reads contract state at key "contract_info" and returnes the parsed state if it exists.
+	 */
+	async getVersion(): Promise<ContractVersionInfo | null> {
+		const storedData = await this.endpoint.queryContractRaw(this.address, CONTRACT_INFO_KEY);
+		if (storedData == null) {
+			return null;
+		}
+		return JSON.parse(Buffer.from(storedData.buffer, storedData.byteOffset, storedData.byteLength).toString());
+	}
+	/**
+	 * Executes the contracts `query` function with the specified payload encoded as JSON
+	 * @param msg 
+	 * @returns 
+	 */
 	query(msg: any): Promise<any> {
 		return this.endpoint.queryContractSmart(this.address, msg);
 	}

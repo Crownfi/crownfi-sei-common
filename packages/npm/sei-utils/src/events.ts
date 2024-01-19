@@ -1,5 +1,5 @@
 import { TinyEmitter } from "tiny-emitter";
-import { DeliverTxResponse, ExecuteResult } from "@cosmjs/cosmwasm-stargate"
+import { DeliverTxResponse } from "@cosmjs/cosmwasm-stargate"
 import { Addr } from "./common_sei_types.js";
 import { SeiChainId, SeiChainNetConfig } from "./chain_config.js";
 import { MaybeSelectedProviderString } from "./client_env.js";
@@ -14,7 +14,7 @@ export interface TypedTinyEmitter<T extends any = any> extends Omit<TinyEmitter,
 }
 
 interface SeiUtilEvents {
-	transactionConfirmed: (ev: {chainId: SeiChainId, sender: Addr, result: ExecuteResult | DeliverTxResponse}) => void
+	transactionConfirmed: (ev: {chainId: SeiChainId, sender: Addr, result: DeliverTxResponse}) => void
 	defaultNetworkChanged: (ev: SeiChainNetConfig) => void
 	defaultProviderChangeRequest: (ev: {
 		provider: MaybeSelectedProviderString,
