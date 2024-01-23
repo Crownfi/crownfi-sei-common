@@ -163,7 +163,30 @@ pub(crate) fn schema_type_string(
 			let schema_object_type_name = make_type_name(schema_object_reference);
 			required_types.insert(schema_object_type_name.clone().into());
 			return Ok(schema_object_type_name.to_string());
-		// Same as above but nullable
+		// Nullable type references but represented as an any_of with a length of 1
+		}else if let Some(schema_object_reference) = schema_object.subschemas.as_ref()
+			.and_then(|subschemas| {
+				subschemas.all_of.as_ref()
+			})
+			.and_then(|subschemas_all_of| {
+				if subschemas_all_of.len() == 1 {
+					subschemas_all_of[0].as_object()?.reference.as_ref()
+				}else{
+					None
+				}
+			})
+			.and_then(|ref_string| {
+				if ref_string.starts_with("#/definitions/") {
+					Some(&ref_string[14..])
+				}else{
+					None
+				}
+			})
+		{
+			let schema_object_type_name = make_type_name(schema_object_reference);
+			required_types.insert(schema_object_type_name.clone().into());
+			return Ok(schema_object_type_name.to_string());
+		// Nullable type references
 		} else if let Some(schema_object_reference) = schema_object.subschemas.as_ref()
 			.and_then(|subschema| {
 				subschema.any_of.as_ref()
@@ -223,6 +246,15 @@ pub(crate) enum MethodGenType<'a> {
 }
 
 impl MethodGenType<'_> {
+	#[inline]
+	pub(crate) fn is_query(
+		&self
+	) -> bool {
+		match self {
+			MethodGenType::Query(_) => true,
+			_ => false
+		}
+	}
 	pub(crate) fn generate_method_name(
 		&self,
 		enum_variant: &str
@@ -233,7 +265,7 @@ impl MethodGenType<'_> {
 			},
 			MethodGenType::Execute => {
 				[
-					"exec",
+					"build",
 					&enum_variant.to_case(Case::Pascal),
 					"Ix"
 				].join("")
@@ -256,11 +288,17 @@ impl MethodGenType<'_> {
 			},
 			MethodGenType::Cw20Hook => {
 				[
-					"exec",
+					"build",
 					&enum_variant.to_case(Case::Pascal),
 					"Cw20Ix"
 				].join("")
 			},
+		}
+	}
+	pub(crate) fn prepend_extra_args(&self) -> bool {
+		match self {
+			MethodGenType::Cw20Hook => true,
+			_ => false
 		}
 	}
 	pub(crate) fn extra_func_args(&self) -> &'static str {
@@ -329,6 +367,15 @@ impl MethodArgType<'_> {
 		match self {
 			MethodArgType::None => false,
 			_ => true
+		}
+	}
+	#[inline]
+	pub(crate) fn is_empty_object(&self) -> bool {
+		match self {
+			MethodArgType::Object(obj_validation) => {
+				obj_validation.properties.len() == 0
+			}
+			_ => false
 		}
 	}
 }

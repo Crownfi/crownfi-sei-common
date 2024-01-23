@@ -206,11 +206,15 @@ impl CrownfiSdkMaker {
 		Ok(self)
 	}
 
-	fn codegen_types(&self, output_path: &mut PathBuf) -> Result<(), SdkMakerError> {
+	fn codegen_types(
+		&self,
+		output_path: &mut PathBuf,
+		files_list: &mut Vec<String>
+	) -> Result<(), SdkMakerError> {
 		let json2ts_bin_path = which("json2ts").map_err(|err| {
 			SdkMakerError::Json2TsNotFound(err)
 		})?;
-
+		files_list.push("types.ts".into());
 		output_path.push("types.ts");
 		let mut child = Command::new(json2ts_bin_path)
 			.arg("--output")
@@ -240,14 +244,17 @@ impl CrownfiSdkMaker {
 		msg_enum_varient_fields: MethodArgType,
 		kind: MethodGenType
 	) -> Result<(), SdkMakerError> {
-		write!(output, "\t{} (", kind.generate_method_name(msg_enum_variant))?;
+		write!(output, "\t{}(", kind.generate_method_name(msg_enum_variant))?;
+		if kind.prepend_extra_args() {
+			output.write_all(kind.extra_func_args().as_bytes())?;
+		}
 		match msg_enum_varient_fields {
 			MethodArgType::None => {},
+			MethodArgType::Object(msg_enum_varient_fields) if msg_enum_varient_fields.properties.len() == 0 => {}
 			MethodArgType::Object(msg_enum_varient_fields) => {
-				// create "args: {dsadadasd: asdad},"
-				// write!(output, "args: {{dsadadasd: asdad}},")?;
-				// println!("codegen_contract_method: {msg_type_name}::{msg_enum_variant}");
-				// println!("msg_enum_varient_fields: {:#?}", msg_enum_varient_fields);
+				if kind.prepend_extra_args() {
+					write!(output, ", ")?;
+				}
 				write!(output, "args: {{")?;
 
 				
@@ -276,31 +283,45 @@ impl CrownfiSdkMaker {
 						write!(output, ", ")?;
 					}
 				}
-				
 				write!(output, "}}")?;
+				if msg_enum_varient_fields.required.len() == 0 {
+					write!(output, " = {{}}")?;	
+				}
 
-				if kind.extra_func_args().len() > 0 {
+				if !kind.prepend_extra_args() && kind.extra_func_args().len() > 0 {
 					write!(output, ", ")?;
 				}
 			},
 			MethodArgType::TypeRef(type_ref) => {
+				if kind.prepend_extra_args() {
+					write!(output, ", ")?;
+				}
 				write!(output, "args: {}", type_ref)?;
-				if kind.extra_func_args().len() > 0 {
+				if !kind.prepend_extra_args() && kind.extra_func_args().len() > 0 {
 					write!(output, ", ")?;
 				}
 				let type_name = make_type_name(type_ref);
 				required_types.insert(type_name.into());
 			},
 		}
-		output.write_all(kind.extra_func_args().as_bytes())?;
+		if !kind.prepend_extra_args() {
+			output.write_all(kind.extra_func_args().as_bytes())?;
+		}
 		let return_type = kind.return_type(msg_enum_variant);
 		let typescript_return_type = make_type_name(&return_type);
 
-		writeln!(output, "): {} {{", typescript_return_type)?;
+		if kind.is_query() {
+			writeln!(output, "): Promise<{}> {{", typescript_return_type)?;
+		}else{
+			writeln!(output, "): {} {{", typescript_return_type)?;
+		}
+		
 		required_types.insert(typescript_return_type.into());
 		
 		write!(output, "\t\tconst msg = ")?;
-		if msg_enum_varient_fields.is_some() {
+		if msg_enum_varient_fields.is_empty_object() {
+			write!(output, "{{\"{}\": {{}}}}", msg_enum_variant.escape_default())?;
+		} else if msg_enum_varient_fields.is_some() {
 			write!(output, "{{\"{}\": args}}", msg_enum_variant.escape_default())?;
 		} else {
 			write!(output, "\"{}\"", msg_enum_variant.escape_default())?;
@@ -421,7 +442,11 @@ impl CrownfiSdkMaker {
 		Ok(())
 		
 	}
-	fn codegen_contracts(&self, output_path: &mut PathBuf) -> Result<(), SdkMakerError> {
+	fn codegen_contracts(
+		&self,
+		output_path: &mut PathBuf,
+		files_list: &mut Vec<String>
+	) -> Result<(), SdkMakerError> {
 		let mut types_required = BTreeSet::<Arc<str>>::new();
 		// Creating a temp buffer as we must import the types first and we only know that as we go through the contract
 		let mut contract_body = Vec::<u8>::new();
@@ -430,7 +455,7 @@ impl CrownfiSdkMaker {
 			types_required.insert("ContractBase".into());
 			types_required.insert("Coin".into());
 
-			writeln!(contract_body, "export class {} extends ContractBase {{", contract_class_name)?;
+			writeln!(contract_body, "export class {}Contract extends ContractBase {{", contract_class_name)?;
 
 			if let Some(query_type) = &contract_def.query_type {
 				let query_def =
@@ -473,8 +498,9 @@ impl CrownfiSdkMaker {
 			}
 
 			writeln!(contract_body, "}}")?;
+			files_list.push([contract_name, ".ts"].join(""));
 			output_path.push(
-				[contract_name, ".ts"].join("")
+				files_list.last().expect("literally just pushed this")
 			);
 			let modules_to_types = {
 				let mut modules_to_types = BTreeMap::<Arc<str>, BTreeSet<Arc<str>>>::new();
@@ -509,8 +535,23 @@ impl CrownfiSdkMaker {
 	pub fn generate_code<P: Into<PathBuf>>(&self, out_dir: P) -> Result<(), SdkMakerError> {
 		let mut output_path: PathBuf = out_dir.into();
 		fs::create_dir_all(&output_path)?;
-		self.codegen_types(&mut output_path)?;
-		self.codegen_contracts(&mut output_path)?;
+		let mut files_list = Vec::new();
+		self.codegen_types(&mut output_path, &mut files_list)?;
+		self.codegen_contracts(&mut output_path, &mut files_list)?;
+
+		output_path.push("index.ts");
+		let mut out_file = fs::File::create(&output_path)?;
+		output_path.pop();
+		out_file.write_all(TYPESCRIPT_OUTPUT_DISCLAIMER_COMMENT.as_bytes())?;
+		for mut file_name in files_list.into_iter() {
+			if file_name.ends_with(".ts") {
+				file_name.truncate(file_name.len() - 2);
+				file_name.push_str("js");
+			}
+			writeln!(out_file, "export * from \"./{}\";", file_name.escape_default())?;
+		}
+		out_file.sync_all()?;
+
 		Ok(())
 	}
 }
