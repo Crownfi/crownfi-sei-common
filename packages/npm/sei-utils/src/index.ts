@@ -1,4 +1,3 @@
-export * from "./astroport_legacy.js";
 export * from "./chain_config.js";
 export * from "./client_env.js";
 export * from "./common_sei_types.js";

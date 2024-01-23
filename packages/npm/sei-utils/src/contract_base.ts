@@ -104,20 +104,21 @@ export class ContractBase {
 		if (tokenContractOrUnifiedDenom.startsWith("cw20/")) {
 			tokenContractOrUnifiedDenom = tokenContractOrUnifiedDenom.substring(5); // "cw20/".length
 		}
-		return this.executeIx(
-			{
+		return {
+			contractAddress: tokenContractOrUnifiedDenom,
+			msg: {
 				send: {
 					amount: amount.toString(),
-					contract: tokenContractOrUnifiedDenom,
+					contract: this.address,
 					// I can't believe no one took a look at base64-encoded-json and thought:
 					// "How is this supposed to be fast?"
-					msg: Buffer.from(
+					msg:(Buffer.isBuffer(msg) ? msg : Buffer.from(
 						JSON.stringify(
 							msg
 						)
-					).toString("base64")
+					)).toString("base64")
 				}
 			}
-		)
+		};
 	}
 }

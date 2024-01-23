@@ -263,8 +263,12 @@ export class ClientEnv {
 			fee
 		);
 	}
-	async simulateTransactionButWithActuallyUsefulInformation(messages: readonly EncodeObject[]): Promise<SimulateResponse> {
-		// Because cosmjs says: "Why would anyone want any information other than estimated gas from a simulation?"
+	/**
+	 * Simulates the transaction and provides actually useful information. Like the events emitted.
+	 * 
+	 * Because cosmjs says: "Why would anyone want any information other than estimated gas from a simulation?"
+	 */
+	async simulateTransaction(messages: readonly EncodeObject[]): Promise<SimulateResponse> {
 		if (!this.isSignable()) {
 			throw new Error("Cannot execute transactions - " + this.readonlyReason);
 		}
@@ -280,25 +284,7 @@ export class ClientEnv {
 	async simulateContractMulti(
 		instructions: ExecuteInstruction[]
 	): Promise<SimulateResponse> {
-		if (!this.isSignable()) {
-			throw new Error("Cannot execute transactions - " + this.readonlyReason);
-		}
-		const msgs: MsgExecuteContractEncodeObject[] = instructions.map((i) => {
-			if (i.funds) {
-				// 🙄🙄🙄🙄
-				i.funds = (i.funds as Coin[]).sort(nativeDenomSortCompare);
-			}
-			return {
-				typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-					value: MsgExecuteContract.fromPartial({
-					sender: this.account.address,
-					contract: i.contractAddress,
-					msg: i.msg instanceof Uint8Array ? i.msg : Buffer.from(JSON.stringify(i.msg)),
-					funds: i.funds?.length ? i.funds as Coin[] : [],
-				}),
-			}
-		});
-		return this.simulateTransactionButWithActuallyUsefulInformation(msgs);
+		return this.simulateTransaction(this.execIxsToCosmosMsgs(instructions));
 	}
 	async simulateContract(
 		instruction: ExecuteInstruction
