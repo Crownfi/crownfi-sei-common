@@ -121,7 +121,7 @@ export class ClientEnv {
 					{
 						chainId: getDefaultNetworkConfig().chainId,
 						provider: newProviderString,
-						account: clientAccount.address
+						account: clientAccount
 					}
 				);
 			}catch(ex) {
