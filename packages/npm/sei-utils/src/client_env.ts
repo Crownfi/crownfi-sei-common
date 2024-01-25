@@ -50,6 +50,10 @@ export class ClientEnv {
 	queryClient: Awaited<ReturnType<typeof getQueryClient>>
 	readonlyReason: string
 
+
+	static getDefaultProvider(): MaybeSelectedProviderString {
+		return maybeProviderToMaybeString(defaultProvider);
+	}
 	/**
 	 * Sets the default provider to `null` synchronously
 	 */
