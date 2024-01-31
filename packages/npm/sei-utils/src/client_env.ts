@@ -9,7 +9,6 @@ import { nativeDenomSortCompare } from "./funds_util.js";
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx.js";
 import { Addr } from "./common_sei_types.js";
 
-// TODO: New provider: "read-only-address"
 export type MaybeSelectedProviderString = KnownSeiProviders | "seed-wallet" | "read-only-address" | null;
 export type MaybeSelectedProvider = KnownSeiProviders | {seed: string, index?: number} | {address: string} | null;
 
@@ -314,7 +313,7 @@ export class ClientEnv {
 	 */
 	async simulateTransaction(messages: readonly EncodeObject[]): Promise<SimulateResponse> {
 		if (!this.isSignable()) {
-			throw new Error("Cannot execute transactions - " + this.readonlyReason);
+			throw new Error("Cannot simulate transactions - " + this.readonlyReason);
 		}
 		const { sequence } = await this.wasmClient.getSequence(this.account.address);
 		// Using [] notation bypasses the "protected" rule.
@@ -334,7 +333,7 @@ export class ClientEnv {
 		instruction: ExecuteInstruction
 	): Promise<SimulateResponse> {
 		if (!this.isSignable()) {
-			throw new Error("Cannot execute transactions - " + this.readonlyReason);
+			throw new Error("Cannot simulate transactions - " + this.readonlyReason);
 		}
 		return this.simulateContractMulti([instruction]);
 	  }
