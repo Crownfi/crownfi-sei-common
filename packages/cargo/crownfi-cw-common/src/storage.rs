@@ -1,9 +1,6 @@
 use std::{rc::Rc, cell::{RefCell, Ref}};
-
-
-
+use borsh::{BorshDeserialize, BorshSerialize};
 use cosmwasm_std::{StdError, Storage};
-use serde::{de::DeserializeOwned as SerdeDeserializeOwned, Serialize as SerdeSerialize};
 
 pub mod item;
 pub mod map;
@@ -17,72 +14,110 @@ pub fn concat_byte_array_pairs(a: &[u8], b: &[u8]) -> Vec<u8> {
 	result
 }
 
-
-
-#[derive(Debug, Clone)]
-pub enum SerializationResult<'a> {
-	Ref(&'a [u8]),
-	Owned(Rc<[u8]>),
-	OwnedMut(Vec<u8>)
-}
-impl Default for SerializationResult<'_> {
-	fn default() -> Self {
-		Self::Ref(b"")
-	}
-}
-impl AsRef<[u8]> for SerializationResult<'_> {
-	fn as_ref(&self) -> &[u8] {
-		match self {
-			SerializationResult::Ref(bytes) => bytes,
-			SerializationResult::Owned(bytes) => bytes.as_ref(),
-			SerializationResult::OwnedMut(bytes) => bytes.as_ref(),
-		}
-	}
-}
-impl Into<Vec<u8>> for SerializationResult<'_> {
-	fn into(self) -> Vec<u8> {
-		match self {
-			SerializationResult::Ref(bytes) => bytes.to_vec(),
-			SerializationResult::Owned(bytes) => bytes.to_vec(),
-			SerializationResult::OwnedMut(bytes) => bytes,
-		}
-	}
-}
-impl Into<Rc<[u8]>> for SerializationResult<'_> {
-	fn into(self) -> Rc<[u8]> {
-		match self {
-			SerializationResult::Ref(bytes) => bytes.into(),
-			SerializationResult::Owned(bytes) => bytes,
-			SerializationResult::OwnedMut(bytes) => bytes.into(),
-		}
-	}
-}
-
 pub trait SerializableItem {
-	fn serialize(&self) -> Result<SerializationResult, StdError>;
+	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError>;
+	fn serialize_as_ref(&self) -> Option<&[u8]>;
 	fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized;
 }
 
-impl<T> SerializableItem for T where T: SerdeDeserializeOwned + SerdeSerialize {
-	fn serialize(&self) -> Result<SerializationResult, StdError> {
-		Ok(
-			SerializationResult::OwnedMut(bincode::serialize(self).map_err(|ser_error| {
-				StdError::SerializeErr {
-					source_type: "bincode::serialize".into(),
-					msg: ser_error.to_string()
-				}
-			})?)
-		)
+#[macro_export]
+macro_rules! impl_serializable_as_ref {
+	( $data_type:ident ) => {
+		impl SerializableItem for $data_type {
+			fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
+				Ok(bytemuck::bytes_of(self).into())
+			}
+
+			fn serialize_as_ref(&self) -> Option<&[u8]> {
+				Some(bytemuck::bytes_of(self))
+			}
+			
+			fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
+				// If we're gonna clone anyway might as well use read_unaligned
+				// I don't trust the storage api to give me bytes which don't align to 8 bytes anyway
+				bytemuck::try_pod_read_unaligned(data).map_err(|err| {
+					StdError::parse_err("SerializableItem", err)
+				})
+			}
+		}
+	}
+}
+
+#[macro_export]
+macro_rules! impl_serializable_borsh {
+	( $data_type:ident ) => {
+		impl SerializableItem for $data_type {
+			fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
+				let mut result = Vec::new();
+				self.serialize(&mut result).map_err(|err| {
+					StdError::serialize_err("SerializableItem", err)
+				})?;
+				Ok(result)
+			}
+			
+			fn serialize_as_ref(&self) -> Option<&[u8]> {
+				None
+			}
+			
+			fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
+				Self::try_from_slice(data).map_err(|err| {
+					StdError::parse_err("SerializableItem", err)
+				})
+			}
+		}
+	}
+}
+
+impl_serializable_as_ref!(u8);
+impl_serializable_as_ref!(i8);
+impl_serializable_as_ref!(u16);
+impl_serializable_as_ref!(i16);
+impl_serializable_as_ref!(u32);
+impl_serializable_as_ref!(i32);
+impl_serializable_as_ref!(u64);
+impl_serializable_as_ref!(i64);
+impl_serializable_as_ref!(usize);
+impl_serializable_as_ref!(isize);
+impl_serializable_as_ref!(u128);
+impl_serializable_as_ref!(i128);
+impl_serializable_as_ref!(f32);
+impl_serializable_as_ref!(f64);
+impl_serializable_borsh!(bool);
+impl_serializable_borsh!(String);
+
+impl<T> SerializableItem for Vec<T> where T: BorshDeserialize + BorshSerialize {
+	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
+		let mut result = Vec::new();
+		self.serialize(&mut result).map_err(|err| {
+			StdError::serialize_err("SerializableItem", err)
+		})?;
+		Ok(result)
+	}
+	fn serialize_as_ref(&self) -> Option<&[u8]> {
+		None
 	}
 	fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
-		bincode::deserialize(data).map_err(move |parse_error| {
-			StdError::ParseErr {
-				target_type: "bincode::deserialize".into(),
-				msg: parse_error.to_string()
-			}
+		Self::try_from_slice(data).map_err(|err| {
+			StdError::parse_err("SerializableItem", err)
 		})
 	}
 }
+
+impl SerializableItem for () {
+	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
+		Ok(Vec::new())
+	}
+	fn serialize_as_ref(&self) -> Option<&[u8]> {
+		Some(b"")
+	}
+	fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
+		if data.len() != 0 {
+			return Err(StdError::parse_err("()", "data was not empty"));
+		}
+		Ok(())
+	}
+}
+
 pub(crate) fn lexicographic_next(bytes: &[u8]) -> Vec<u8> {
 	let mut result = Vec::from(bytes);
 	let mut add = true;
@@ -101,7 +136,6 @@ pub(crate) fn lexicographic_next(bytes: &[u8]) -> Vec<u8> {
 	result
 }
 
-
 #[derive(Clone)]
 pub enum MaybeMutableStorage<'exec> {
 	Immutable(&'exec dyn Storage),
@@ -111,15 +145,18 @@ impl<'exec> MaybeMutableStorage<'exec> {
 	pub fn new_immutable(storage: &'exec dyn Storage) -> Self {
 		Self::Immutable(storage)
 	}
+
 	pub fn new_mutable_shared(storage: Rc<RefCell<&'exec mut dyn Storage>>) -> Self {
 		Self::MutableShared(storage)
 	}
+
 	pub fn get_immutable(&self) -> Option<&'exec dyn Storage> {
 		match self {
 			MaybeMutableStorage::Immutable(storage) => Some(*storage),
 			MaybeMutableStorage::MutableShared(_) => None,
 		}
 	}
+
 	pub fn get_mutable_shared(&self) -> Option<Rc<RefCell<&'exec mut dyn Storage>>> {
 		match self {
 			MaybeMutableStorage::Immutable(_) => None,
@@ -160,6 +197,7 @@ impl<'exec> MaybeMutableStorage<'exec> {
 			MaybeMutableStorage::MutableShared(storage) => storage.borrow_mut().remove(key),
 		}
 	}
+
 	/// Returns the lexicographically next key/value pair after the specified key.
 	/// Used for implementing double-ended iterators and to allow multiple mutable iterators to exist at once.
 	pub fn next_record(&self, key: &[u8], before: Option<&[u8]>) -> Option<(Vec<u8>, Vec<u8>)> {
@@ -198,7 +236,7 @@ impl<'exec> MaybeMutableStorage<'exec> {
 				storage.range(
 					after,
 					Some(key),
-					cosmwasm_std::Order::Ascending
+					cosmwasm_std::Order::Descending
 				).next()
 			},
 			MaybeMutableStorage::MutableShared(storage) => {
@@ -212,110 +250,7 @@ impl<'exec> MaybeMutableStorage<'exec> {
 	}
 }
 
-
 pub enum MaybeMutableStorageRef<'a> {
 	Immutable(&'a dyn Storage),
 	MutableShared(Ref<'a, &'a mut dyn Storage>)
 }
-
-// Originally I wanted to do either bytemuck and/or borsh and have the option to switch between the 2 with borsh being
-// the preferred, but 2 major things got in my way.
-// 1. None of the cosmwasm_std types impl the Borsh traits (no surprise there, they seemingly don't care about perf)
-// 2. Contextually switching to casting vs "actual" serialization is infeasible without being able to define multiple
-//    blanket implementations. (Trait specialization might solve this) 
-
-/*
-pub fn serialize_borsh<T: BorshSerialize + Sized>(data: &T) -> Result<Vec<u8>, StdError> {
-	let mut vec: Vec<u8> = Vec::with_capacity(size_of::<T>());
-	data.serialize(&mut vec).map_err(|ser_error| {
-		StdError::SerializeErr {
-			source_type: "BorshSerialize".into(),
-			msg: ser_error.to_string()
-		}
-	})?;
-	Ok(vec)
-}
-pub fn deserialize_borsh<T: BorshDeserialize>(data: &[u8]) -> Result<T, StdError> {
-	T::try_from_slice(&data).map_err(|parse_error| {
-		StdError::ParseErr {
-			target_type: "BorshDeserialize".into(),
-			msg: parse_error.to_string()
-		}
-	})
-}
-pub fn serialize_cast<T: Pod>(data: &T) -> Result<&[u8], StdError> {
-	Ok(bytes_of(data))
-}
-pub fn deserialize_cast<T: Pod>(data: &[u8]) -> Result<T, StdError> {
-	Ok(
-		*try_from_bytes(&data).map_err(|parse_error| {
-			StdError::ParseErr {
-				target_type: "Pod".into(),
-				msg: parse_error.to_string()
-			}
-		})?
-	)
-}
-
-#[macro_export]
-macro_rules! impl_serializable_cast {
-	( $data_type:ident ) => {
-		impl SerializableItem for $data_type {
-			fn serialize(&self) -> Result<SerializationResult, StdError> {
-				Ok(SerializationResult::Ref(serialize_cast(self)?))
-			}
-			fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
-				deserialize_cast(data)
-			}
-		}
-	}
-}
-
-#[macro_export]
-macro_rules! impl_serializable_borsh {
-	( $data_type:ident ) => {
-		impl SerializableItem for $data_type {
-			fn serialize(&self) -> Result<SerializationResult, StdError> {
-				Ok(SerializationResult::OwnedMut(serialize_borsh(self)?))
-			}
-			fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
-				deserialize_borsh(data)
-			}
-		}
-	}
-}
-impl_serializable_cast!(u8);
-impl_serializable_cast!(i8);
-impl_serializable_cast!(u16);
-impl_serializable_cast!(i16);
-impl_serializable_cast!(u32);
-impl_serializable_cast!(i32);
-impl_serializable_cast!(u64);
-impl_serializable_cast!(i64);
-impl_serializable_cast!(usize);
-impl_serializable_cast!(isize);
-impl_serializable_cast!(u128);
-impl_serializable_cast!(i128);
-impl_serializable_cast!(f32);
-impl_serializable_cast!(f64);
-
-impl_serializable_borsh!(String);
-
-impl SerializableItem for Addr {
-	fn serialize(&self) -> Result<SerializationResult, StdError> {
-		Ok(SerializationResult::OwnedMut(serialize_borsh(&self.as_str())?))
-	}
-	fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
-		Ok(Addr::unchecked(deserialize_borsh::<String>(data)?))
-	}
-}
-
-impl<T> SerializableItem for Vec<T> where T: BorshDeserialize + BorshSerialize {
-	fn serialize(&self) -> Result<SerializationResult, StdError> {
-		Ok(SerializationResult::OwnedMut(serialize_borsh(&self)?))
-	}
-	fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
-		deserialize_borsh(data)
-	}
-}
-*/

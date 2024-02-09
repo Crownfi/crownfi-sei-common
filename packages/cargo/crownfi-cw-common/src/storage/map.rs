@@ -18,20 +18,32 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 			value_type: PhantomData
 		}
 	}
+
 	#[inline]
 	pub fn key(&self, key: &K) -> Vec<u8> {
-		concat_byte_array_pairs(
-			self.namespace, key.serialize().expect("key serialization should never fail").as_ref()
-		)
+		if let Some(key_bytes) = key.serialize_as_ref() {
+			concat_byte_array_pairs(
+				self.namespace,
+				key_bytes
+			)
+		}else{
+			concat_byte_array_pairs(
+				self.namespace,
+				&key.serialize_to_owned().expect("key serialization should never fail")
+			)
+		}
 	}
+
 	#[inline]
 	pub fn get_raw_bytes(&self, key: &K) -> Option<Vec<u8>> {
 		self.storage.get(&self.key(key))
 	}
+
 	#[inline]
 	pub(crate) fn set_raw_bytes(&self, key: &K, bytes: &[u8]) {
 		self.storage.set(&self.key(key), bytes)
 	}
+
 	pub fn get(&self, key: &K) -> StdResult<Option<V>> {
 		let Some(data) = self.get_raw_bytes(key) else {
 			return Ok(None);
@@ -42,12 +54,14 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 			)
 		)
 	}
+
 	pub fn get_autosaving(&self, key: &K) -> StdResult<Option<AutosavingSerializableItem<'exec, V>>> {
 		AutosavingSerializableItem::new(
 			&self.storage.get_mutable_shared().expect("get_autosaving should only be used in a mutable context"),
 			self.key(key)
 		)
 	}
+
 	pub fn get_or_default_autosaving(
 		&self,
 		key: &K
@@ -57,19 +71,29 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 			self.key(key)
 		)
 	}
+
 	pub fn has(&self, key: &K) -> bool {
 		self.storage.get(&self.key(key)).is_some()
 	}
+
 	pub fn set(&self, key: &K, value: &V) -> StdResult<()> {
-		self.storage.set(
-			&self.key(key),
-			&value.serialize()?.as_ref()
-		);
+		let storage = &self.storage;
+		if let Some(bytes) = value.serialize_as_ref() {
+			storage.set(&self.key(key), bytes);
+		}else{
+			storage.set(
+				&self.key(key),
+				&value.serialize_to_owned()
+					.expect("autosave serialize should never fail")
+			)
+		}
 		Ok(())
 	}
+
 	pub fn remove(&self, key: &K) {
 		self.storage.remove(&self.key(key))
 	}
+	
 	pub fn iter(&self) -> StdResult<StoredMapIter<'exec, K, V>> {
 		StoredMapIter::new(
 			self.storage.clone(),
@@ -106,17 +130,17 @@ impl<'a, K: SerializableItem, V: SerializableItem> StoredMapIter<'a, K, V> {
 		start_key: Option<K>,
 		end_key: Option<K>,
 	) -> StdResult<Self> where P: SerializableItem  {
-		let prefix_bytes = key_prefix.serialize()?;
+		let prefix_bytes = key_prefix.serialize_to_owned()?;
 		let start_bytes = start_key.map_or(Ok(Vec::new()), |k| {
-			k.serialize().map(|maybe_vec| {maybe_vec.into()})
+			k.serialize_to_owned().map(|maybe_vec| {maybe_vec.into()})
 		})?;
 		let end_bytes = end_key.map_or(Ok(Vec::new()), |k| {
-			k.serialize().map(|maybe_vec| {maybe_vec.into()})
+			k.serialize_to_owned().map(|maybe_vec| {maybe_vec.into()})
 		})?;
 
 		let mut start_key = Vec::with_capacity(
 			namespace.len() +
-			prefix_bytes.as_ref().len() +
+			prefix_bytes.len() +
 			start_bytes.len()
 		);
 		start_key.extend_from_slice(namespace);
@@ -125,7 +149,7 @@ impl<'a, K: SerializableItem, V: SerializableItem> StoredMapIter<'a, K, V> {
 
 		let mut end_key = Vec::with_capacity(
 			namespace.len() +
-			prefix_bytes.as_ref().len() +
+			prefix_bytes.len() +
 			end_bytes.len()
 		);
 		end_key.extend_from_slice(namespace);
@@ -139,7 +163,7 @@ impl<'a, K: SerializableItem, V: SerializableItem> StoredMapIter<'a, K, V> {
 				last_backward_key: end_key,
 				key_type: PhantomData,
 				value_type: PhantomData,
-				key_slicing: namespace.len() + prefix_bytes.as_ref().len()
+				key_slicing: namespace.len() + prefix_bytes.len()
 			}
 		)
 	}

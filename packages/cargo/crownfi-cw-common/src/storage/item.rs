@@ -3,11 +3,9 @@ use std::ops::{Deref, DerefMut};
 use cosmwasm_std::{Storage, StdError};
 use super::SerializableItem;
 
-
-//pub fn load_cast_from_key
-
 pub trait StoredItem: SerializableItem {
 	fn namespace() -> &'static [u8];
+
 	fn load_from_key(storage: & dyn Storage, key: &[u8]) -> Result<Option<Self>, StdError> where Self: Sized {
 		let Some(data) = storage.get(key) else {
 			return Ok(None);
@@ -18,26 +16,36 @@ pub trait StoredItem: SerializableItem {
 			)
 		)
 	}
+
 	fn save_to_key(&self, storage: &mut dyn Storage, key: &[u8]) -> Result<(), StdError> {
-		storage.set(key, self.serialize()?.as_ref());
+		if let Some(bytes) = self.serialize_as_ref() {
+			storage.set(key, bytes);
+		}else{
+			storage.set(key, &self.serialize_to_owned()?)
+		}
 		Ok(())
 	}
+
 	#[inline]
 	fn load(storage: & dyn Storage) -> Result<Option<Self>, StdError> where Self: Sized {
 		Self::load_from_key(storage, Self::namespace())
 	}
+
 	#[inline]
 	fn save(&self, storage: &mut dyn Storage) -> Result<(), StdError> {
 		self.save_to_key(storage, Self::namespace())
 	}
+
 	fn remove(storage: &mut dyn Storage) {
 		storage.remove(Self::namespace())
 	}
+
 	fn load_with_autosave<'a>(
 		storage: &Rc<RefCell<&'a mut dyn Storage>>
 	) -> Result<Option<AutosavingStoredItem<'a, Self>>, StdError> where Self: Sized {
 		AutosavingStoredItem::new(storage)
 	}
+
 	fn load_with_autosave_or_default<'a>(
 		storage: &Rc<RefCell<&'a mut dyn Storage>>
 	) -> Result<AutosavingStoredItem<'a, Self>, StdError> where Self: Default {
@@ -155,9 +163,15 @@ impl<T: SerializableItem> DerefMut for AutosavingSerializableItem<'_, T> {
 }
 impl<'a, T> Drop for AutosavingSerializableItem<'a, T> where T: SerializableItem {
 	fn drop(&mut self) {
-		self.storage.borrow_mut().set(
-			&self.namespace,
-			self.value.serialize().expect("autosave serialize should never fail").as_ref()
-		);
+		let mut storage = self.storage.borrow_mut();
+		if let Some(bytes) = self.value.serialize_as_ref() {
+			storage.set(&self.namespace, bytes);
+		}else{
+			storage.set(
+				&self.namespace,
+				&self.value.serialize_to_owned()
+					.expect("autosave serialize should never fail")
+			)
+		}
 	}
 }

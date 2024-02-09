@@ -13,7 +13,7 @@ cosmwasm-schema = "1"
 schemars = "0.8"
 sei-cosmwasm = "0.4"
 thiserror = "1"
-borsh = "1"
+borsh = { version = "1", features = ["derive"] }
 bytemuck = { version = "1", features = ["derive"] }
 serde = "1"
 bincode = "1"
@@ -25,3 +25,4 @@ itertools = "0.12"
 deunicode = "1"
 lazy-regex = "3"
 regex = "1"
+bech32 = "0.9"
