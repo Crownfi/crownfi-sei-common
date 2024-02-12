@@ -8,6 +8,7 @@ use cw20::{Cw20Coin, Cw20ExecuteMsg, Cw20CoinVerified, Cw20QueryMsg, BalanceResp
 use sei_cosmwasm::SeiMsg;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::{impl_serializable_borsh, storage::SerializableItem};
 use super::canonical_addr::SeiCanonicalAddr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
@@ -15,6 +16,8 @@ pub enum FungibleAssetKind {
 	Native(String),
 	CW20(SeiCanonicalAddr)
 }
+impl_serializable_borsh!(FungibleAssetKind);
+
 impl FungibleAssetKind {
 	pub fn try_into_stringable(self, api: &dyn Api) -> Result<FungibleAssetKindString, StdError> {
 		match self {
