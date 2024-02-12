@@ -1,5 +1,6 @@
 use std::{rc::Rc, cell::{RefCell, Ref}};
 use borsh::{BorshDeserialize, BorshSerialize};
+use bytemuck::Pod;
 use cosmwasm_std::{StdError, Storage};
 
 pub mod item;
@@ -36,7 +37,7 @@ macro_rules! impl_serializable_as_ref {
 				// If we're gonna clone anyway might as well use read_unaligned
 				// I don't trust the storage api to give me bytes which don't align to 8 bytes anyway
 				bytemuck::try_pod_read_unaligned(data).map_err(|err| {
-					StdError::parse_err("SerializableItem", err)
+					StdError::parse_err(stringify!($data_type), err)
 				})
 			}
 		}
@@ -45,12 +46,12 @@ macro_rules! impl_serializable_as_ref {
 
 #[macro_export]
 macro_rules! impl_serializable_borsh {
-	( $data_type:ident ) => {
+	( $data_type:ty ) => {
 		impl SerializableItem for $data_type {
 			fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
 				let mut result = Vec::new();
 				self.serialize(&mut result).map_err(|err| {
-					StdError::serialize_err("SerializableItem", err)
+					StdError::serialize_err(stringify!($data_type), err)
 				})?;
 				Ok(result)
 			}
@@ -61,12 +62,34 @@ macro_rules! impl_serializable_borsh {
 			
 			fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
 				Self::try_from_slice(data).map_err(|err| {
-					StdError::parse_err("SerializableItem", err)
+					StdError::parse_err(stringify!($data_type), err)
+				})
+			}
+		}
+	};
+	( $data_type:ty, $($generic:ident),+ ) => {
+		impl<$($generic),*> SerializableItem for $data_type where $($generic: BorshDeserialize + BorshSerialize),* {
+			fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
+				let mut result = Vec::new();
+				self.serialize(&mut result).map_err(|err| {
+					StdError::serialize_err(stringify!($data_type), err)
+				})?;
+				Ok(result)
+			}
+			
+			fn serialize_as_ref(&self) -> Option<&[u8]> {
+				None
+			}
+			
+			fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
+				Self::try_from_slice(data).map_err(|err| {
+					StdError::parse_err(stringify!($data_type), err)
 				})
 			}
 		}
 	}
 }
+
 
 impl_serializable_as_ref!(u8);
 impl_serializable_as_ref!(i8);
@@ -84,24 +107,27 @@ impl_serializable_as_ref!(f32);
 impl_serializable_as_ref!(f64);
 impl_serializable_borsh!(bool);
 impl_serializable_borsh!(String);
+impl_serializable_borsh!(Vec<T>, T);
 
-impl<T> SerializableItem for Vec<T> where T: BorshDeserialize + BorshSerialize {
-	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
-		let mut result = Vec::new();
-		self.serialize(&mut result).map_err(|err| {
-			StdError::serialize_err("SerializableItem", err)
-		})?;
-		Ok(result)
-	}
-	fn serialize_as_ref(&self) -> Option<&[u8]> {
-		None
-	}
-	fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
-		Self::try_from_slice(data).map_err(|err| {
-			StdError::parse_err("SerializableItem", err)
-		})
-	}
-}
+// Bytemuck doesn't have blanket impls for tuples, but borsh does! Which allows us to be lazy when defining map keys
+impl_serializable_borsh!((T0, T1), T0, T1);
+impl_serializable_borsh!((T0, T1, T2, T3), T0, T1, T2, T3);
+impl_serializable_borsh!((T0, T1, T2, T3, T4), T0, T1, T2, T3, T4);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5), T0, T1, T2, T3, T4, T5);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6), T0, T1, T2, T3, T4, T5, T6);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7), T0, T1, T2, T3, T4, T5, T6, T7);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8), T0, T1, T2, T3, T4, T5, T6, T7, T8);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18);
+impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19);
 
 impl SerializableItem for () {
 	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
@@ -115,6 +141,23 @@ impl SerializableItem for () {
 			return Err(StdError::parse_err("()", "data was not empty"));
 		}
 		Ok(())
+	}
+}
+impl<T, const N: usize> SerializableItem for [T; N] where T: Pod {
+    fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
+		Ok(bytemuck::bytes_of(self).into())
+	}
+
+	fn serialize_as_ref(&self) -> Option<&[u8]> {
+		Some(bytemuck::bytes_of(self))
+	}
+	
+	fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
+		// If we're gonna clone anyway might as well use read_unaligned
+		// I don't trust the storage api to give me bytes which don't align to 8 bytes anyway
+		bytemuck::try_pod_read_unaligned(data).map_err(|err| {
+			StdError::parse_err("[T; N]", err)
+		})
 	}
 }
 
