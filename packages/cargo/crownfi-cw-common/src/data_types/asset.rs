@@ -1,26 +1,66 @@
 
 use std::fmt;
 
-use cosmwasm_std::{Addr, Coin, CosmosMsg, BankMsg, WasmMsg, to_json_binary, QuerierWrapper, CustomQuery, StdError, Uint128};
+use borsh::{BorshDeserialize, BorshSerialize};
+use cosmwasm_std::{to_json_binary, Addr, Api, BankMsg, Coin, CosmosMsg, CustomQuery, QuerierWrapper, StdError, Uint128, WasmMsg};
 use cosmwasm_schema::{cw_serde, schemars::{schema::Schema, gen::SchemaGenerator, JsonSchema}};
 use cw20::{Cw20Coin, Cw20ExecuteMsg, Cw20CoinVerified, Cw20QueryMsg, BalanceResponse as Cw20BalanceResponse};
 use sei_cosmwasm::SeiMsg;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+use super::canonical_addr::SeiCanonicalAddr;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
 pub enum FungibleAssetKind {
+	Native(String),
+	CW20(SeiCanonicalAddr)
+}
+impl FungibleAssetKind {
+	pub fn try_into_stringable(self, api: &dyn Api) -> Result<FungibleAssetKindString, StdError> {
+		match self {
+			FungibleAssetKind::Native(denom) => {
+				Ok(FungibleAssetKindString::Native(denom))
+			},
+			FungibleAssetKind::CW20(addr) => {
+				Ok(
+					FungibleAssetKindString::CW20(
+						addr.into_addr_using_api(api)?.into_string()
+					)
+				)
+			},
+		}
+	}
+}
+
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum FungibleAssetKindString {
 	Native(String),
 	CW20(String)
 }
-impl FungibleAssetKind {
+impl FungibleAssetKindString {
+	pub fn try_into_asset_kind(self, api: &dyn Api) -> Result<FungibleAssetKind, StdError> {
+		match self {
+			FungibleAssetKindString::Native(denom) => {
+				Ok(FungibleAssetKind::Native(denom))
+			},
+			FungibleAssetKindString::CW20(addr) => {
+				Ok(
+					FungibleAssetKind::CW20(
+						SeiCanonicalAddr::from_addr_using_api(&Addr::unchecked(addr), api)?
+					)
+				)
+			},
+		}
+	}
 	pub fn into_asset<A: Into<Uint128>>(self, amount: A) -> FungibleAsset {
 		match self {
-			FungibleAssetKind::Native(denom) => {
+			FungibleAssetKindString::Native(denom) => {
 				FungibleAsset::Native(
 					Coin { denom, amount: amount.into() }
 				)
 			},
-			FungibleAssetKind::CW20(address) => {
+			FungibleAssetKindString::CW20(address) => {
 				FungibleAsset::CW20(
 					Cw20Coin { address, amount: amount.into() }
 				)
@@ -29,10 +69,10 @@ impl FungibleAssetKind {
 	}
 	pub fn query_balance<Q: CustomQuery>(&self, querier: &QuerierWrapper<Q>, holder: &Addr) -> Result<Uint128, StdError> {
 		match self {
-			FungibleAssetKind::Native(denom) => {
+			FungibleAssetKindString::Native(denom) => {
 				Ok(querier.query_balance(holder, denom)?.amount)
 			},
-			FungibleAssetKind::CW20(address) => {
+			FungibleAssetKindString::CW20(address) => {
 				Ok(
 					querier.query_wasm_smart::<Cw20BalanceResponse>(
 						address, &Cw20QueryMsg::Balance { address: holder.into() }
@@ -42,33 +82,46 @@ impl FungibleAssetKind {
 		}
 	}
 }
-impl fmt::Display for FungibleAssetKind {
+impl fmt::Display for FungibleAssetKindString {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
-			FungibleAssetKind::Native(string) => {
-				f.serialize_str(string)
+			FungibleAssetKindString::Native(string) => {
+				f.write_str(string)
 			},
-			FungibleAssetKind::CW20(string) => {
-				let mut prefixed_sring = String::with_capacity(
-					"cw20/".len() + string.len()
-				);
-				prefixed_sring.push_str("cw20/");
-				prefixed_sring.push_str(string);
-				f.serialize_str(&prefixed_sring)
+			FungibleAssetKindString::CW20(string) => {
+				f.write_str("cw20/")?;
+				f.write_str(string)?;
+				Ok(())
 			},
 		}
 	}
 }
-impl Serialize for FungibleAssetKind {
+impl From<&str> for FungibleAssetKindString {
+	fn from(value: &str) -> Self {
+		if value.starts_with("cw20/") {
+			return Self::CW20(value["cw20/".len()..].into())
+		}
+		Self::Native(value.into())
+	}
+}
+impl From<String> for FungibleAssetKindString {
+	fn from(value: String) -> Self {
+		if value.starts_with("cw20/") {
+			return Self::CW20(value["cw20/".len()..].into())
+		}
+		Self::Native(value)
+	}
+}
+impl Serialize for FungibleAssetKindString {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
 	{
 		match self {
-			FungibleAssetKind::Native(string) => {
+			FungibleAssetKindString::Native(string) => {
 				serializer.serialize_str(string)
 			},
-			FungibleAssetKind::CW20(string) => {
+			FungibleAssetKindString::CW20(string) => {
 				let mut prefixed_sring = String::with_capacity(
 					"cw20/".len() + string.len()
 				);
@@ -79,21 +132,21 @@ impl Serialize for FungibleAssetKind {
 		}
 	}
 }
-impl<'de> Deserialize<'de> for FungibleAssetKind {
-	fn deserialize<D>(deserializer: D) -> Result<FungibleAssetKind, D::Error>
+impl<'de> Deserialize<'de> for FungibleAssetKindString {
+	fn deserialize<D>(deserializer: D) -> Result<FungibleAssetKindString, D::Error>
 	where
 		D: Deserializer<'de>,
 	{
-		let string = String::deserialize(deserializer)?;
+		let string = <String as Deserialize>::deserialize(deserializer)?;
 		if string.starts_with("cw20/") {
 			return Ok(Self::CW20(string["cw20/".len()..].to_string()))
 		}
 		Ok(Self::Native(string))
 	}
 }
-impl JsonSchema for FungibleAssetKind {
+impl JsonSchema for FungibleAssetKindString {
 	fn schema_name() -> String {
-		String::from("FungibleAssetKind")
+		String::from("FungibleAssetKindString")
 	}
 	fn json_schema(gen: &mut SchemaGenerator) -> Schema {
 		String::json_schema(gen)
@@ -108,13 +161,13 @@ pub enum FungibleAsset {
 }
 
 impl FungibleAsset {
-	pub fn into_asset_kind_and_amount(self) -> (FungibleAssetKind, u128) {
+	pub fn into_asset_kind_string_and_amount(self) -> (FungibleAssetKindString, u128) {
 		match self {
 			FungibleAsset::Native(coin) => {
-				(FungibleAssetKind::Native(coin.denom), coin.amount.u128())
+				(FungibleAssetKindString::Native(coin.denom), coin.amount.u128())
 			},
 			FungibleAsset::CW20(cw20_coin) => {
-				(FungibleAssetKind::CW20(cw20_coin.address), cw20_coin.amount.u128())
+				(FungibleAssetKindString::CW20(cw20_coin.address), cw20_coin.amount.u128())
 			},
 		}
 	}
@@ -157,7 +210,7 @@ impl FungibleAsset {
 			},
 		}
 	}
-	pub fn transfer_to_msg(&self, to: Addr) -> CosmosMsg<SeiMsg> {
+	pub fn transfer_to_msg(&self, to: &Addr) -> CosmosMsg<SeiMsg> {
 		match self {
 			FungibleAsset::Native(coin) => {
 				BankMsg::Send {
@@ -167,7 +220,7 @@ impl FungibleAsset {
 			},
 			FungibleAsset::CW20(coin) => {
 				WasmMsg::Execute {
-					contract_addr: coin.address.to_string(),
+					contract_addr: coin.address.clone(),
 					msg: to_json_binary(
 						&Cw20ExecuteMsg::Transfer {
 							recipient: to.to_string(),

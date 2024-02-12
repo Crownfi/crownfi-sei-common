@@ -7,7 +7,7 @@ use cosmwasm_std::{Addr, Api, CanonicalAddr, StdError};
 
 use crate::{impl_serializable_as_ref, storage::SerializableItem};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize, Zeroable, Pod)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, BorshDeserialize, BorshSerialize, Zeroable, Pod)]
 #[repr(C)]
 pub struct SeiCanonicalAddr {
 	bytes: [u8; 32]
