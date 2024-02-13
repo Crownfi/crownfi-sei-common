@@ -26,17 +26,19 @@ macro_rules! impl_serializable_as_ref {
 	( $data_type:ident ) => {
 		impl SerializableItem for $data_type {
 			fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
-				Ok(bytemuck::bytes_of(self).into())
+				// black_box is used to be sure that the optimizer won't throw away changes to the struct
+				Ok(bytemuck::bytes_of(std::hint::black_box(self)).into())
 			}
 
 			fn serialize_as_ref(&self) -> Option<&[u8]> {
-				Some(bytemuck::bytes_of(self))
+				// ditto use of black_box as above
+				Some(bytemuck::bytes_of(std::hint::black_box(self)))
 			}
 			
 			fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
 				// If we're gonna clone anyway might as well use read_unaligned
 				// I don't trust the storage api to give me bytes which don't align to 8 bytes anyway
-				bytemuck::try_pod_read_unaligned(data).map_err(|err| {
+				bytemuck::try_pod_read_unaligned(std::hint::black_box(data)).map_err(|err| {
 					StdError::parse_err(stringify!($data_type), err)
 				})
 			}

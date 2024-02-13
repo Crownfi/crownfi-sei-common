@@ -33,6 +33,10 @@ impl SeiCanonicalAddr {
 			&self.bytes
 		}
 	}
+	/// Checks if this is equal to the given addr using the Api
+	pub fn is_eq_addr(&self, addr: &Addr, api: &dyn Api) -> Result<bool, StdError> {
+		Ok(self.as_slice() == api.addr_canonicalize(addr.as_str())?.as_slice())
+	}
 }
 impl_serializable_as_ref!(SeiCanonicalAddr);
 impl From<[u8; 32]> for SeiCanonicalAddr {

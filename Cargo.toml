@@ -14,7 +14,7 @@ schemars = "0.8"
 sei-cosmwasm = "0.4"
 thiserror = "1"
 borsh = { version = "1", features = ["derive"] }
-bytemuck = { version = "1", features = ["derive"] }
+bytemuck = { version = "1", features = ["derive", "min_const_generics"] }
 serde = "1"
 bincode = "1"
 bpaf = { version = "0.9", features = ["derive"] }
