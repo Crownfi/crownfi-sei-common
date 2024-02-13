@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use cosmwasm_std::StdResult;
 
-use super::{SerializableItem, MaybeMutableStorage, concat_byte_array_pairs, item::AutosavingSerializableItem};
+use super::{concat_byte_array_pairs, item::AutosavingSerializableItem, lexicographic_next, MaybeMutableStorage, SerializableItem};
 pub struct StoredMap<'exec, K: SerializableItem, V: SerializableItem> {
 	namespace: &'static [u8],
 	storage: MaybeMutableStorage<'exec>,
@@ -94,6 +94,10 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 		self.storage.remove(&self.key(key))
 	}
 	
+	/// Returns an iterator which iterates over all key/value pairs of the map
+	/// 
+	/// By default it iterates in an ascending order. Though is a double-ended iterator, so you can use the `.rev()`
+	/// method to switch to descending order.
 	pub fn iter(&self) -> StdResult<StoredMapIter<'exec, K, V>> {
 		StoredMapIter::new(
 			self.storage.clone(),
@@ -101,6 +105,20 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 			(),
 			None,
 			None
+		)
+	}
+
+	/// Returns an iterator over a range of keys.
+	/// 
+	/// You can use `after` to skip items while in ascending order. Or `before` along with the `.rev()` method to skip
+	/// items while iterating in a descending order.
+	pub fn iter_range(&self, after: Option<K>, before: Option<K>) -> StdResult<StoredMapIter<'exec, K, V>> {
+		StoredMapIter::new(
+			self.storage.clone(),
+			self.namespace,
+			(),
+			after,
+			before
 		)
 	}
 }
@@ -147,15 +165,21 @@ impl<'a, K: SerializableItem, V: SerializableItem> StoredMapIter<'a, K, V> {
 		start_key.extend_from_slice(prefix_bytes.as_ref());
 		start_key.extend_from_slice(start_bytes.as_ref());
 
-		let mut end_key = Vec::with_capacity(
-			namespace.len() +
-			prefix_bytes.len() +
-			end_bytes.len()
-		);
-		end_key.extend_from_slice(namespace);
-		end_key.extend_from_slice(prefix_bytes.as_ref());
-		end_key.extend_from_slice(end_bytes.as_ref());
-
+		let end_key = if end_bytes.len() == 0 {
+			lexicographic_next(
+				&concat_byte_array_pairs(&namespace, &prefix_bytes)
+			)
+		}else{
+			let mut end_key = Vec::with_capacity(
+				namespace.len() +
+				prefix_bytes.len() +
+				end_bytes.len()
+			);
+			end_key.extend_from_slice(namespace);
+			end_key.extend_from_slice(prefix_bytes.as_ref());
+			end_key.extend_from_slice(end_bytes.as_ref());
+			end_key
+		};
 		Ok(
 			Self {
 				storage,
@@ -177,7 +201,7 @@ impl<'a, K: SerializableItem, V: SerializableItem> Iterator for StoredMapIter<'a
 		) else {
 			return None;
 		};
-		if key_bytes == self.last_backward_key {
+		if key_bytes >= self.last_backward_key {
 			return None;
 		}
 		let deserialized_key = K::deserialize(&key_bytes[self.key_slicing..]).ok()?;
@@ -196,7 +220,7 @@ impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for Store
 		) else {
 			return None;
 		};
-		if key_bytes == self.last_forward_key {
+		if key_bytes <= self.last_forward_key {
 			return None;
 		}
 		let deserialized_key = K::deserialize(&key_bytes[self.key_slicing..]).ok()?;
