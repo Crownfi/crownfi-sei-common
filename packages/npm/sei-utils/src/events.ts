@@ -15,6 +15,15 @@ export interface TypedTinyEmitter<T extends any = any> extends Omit<TinyEmitter,
 }
 
 interface SeiUtilEvents {
+	/** This event is emitted when a `ClientEnv` sends a transaction  */
+	transactionBroadcasted: (ev: {
+		chainId: SeiChainId,
+		sender: Addr,
+		transactionHash: string,
+		/** If this is false, then `transactionTimeout` and `transactionConfirmed` events will NOT be emitted */
+		awaiting: boolean
+	}) => void
+	transactionTimeout: (ev: {chainId: SeiChainId, sender: Addr, transactionHash: string}) => void
 	transactionConfirmed: (ev: {chainId: SeiChainId, sender: Addr, result: DeliverTxResponse}) => void
 	defaultNetworkChanged: (ev: SeiChainNetConfig) => void
 	defaultProviderChangeRequest: (ev: {

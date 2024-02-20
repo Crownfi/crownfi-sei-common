@@ -4,10 +4,12 @@ import { KNOWN_SEI_PROVIDER_INFO, KnownSeiProviders, SeiWallet, getCosmWasmClien
 import { seiUtilEventEmitter } from "./events.js";
 import { EncodeObject, OfflineSigner } from "@cosmjs/proto-signing";
 import { SeiChainNetConfig, getDefaultNetworkConfig } from "./chain_config.js";
-import { DeliverTxResponse, GasPrice, IndexedTx, TimeoutError, calculateFee, isDeliverTxFailure } from "@cosmjs/stargate";
+import { DeliverTxResponse, GasPrice, IndexedTx, TimeoutError, calculateFee } from "@cosmjs/stargate";
 import { nativeDenomSortCompare } from "./funds_util.js";
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx.js";
 import { Addr } from "./common_sei_types.js";
+
+const DEFAULT_TX_TIMEOUT_MS = 60000;
 
 export type MaybeSelectedProviderString = KnownSeiProviders | "seed-wallet" | "read-only-address" | null;
 export type MaybeSelectedProvider = KnownSeiProviders | {seed: string, index?: number} | {address: string} | null;
@@ -33,6 +35,12 @@ function maybeProviderToMaybeString(provider: MaybeSelectedProvider): MaybeSelec
 	}
 	return provider;
 }
+/**
+ * This type is usually used with functions which send transactions to the blockchain.
+ * A value of `"broadcasted"` means to wait until a transaction is sent. While `{confirmed: {...}}` means waiting until
+ * the transaction has been sent and processed. With an optional timeout time, which usually defaults to 60 seconds.
+ */
+export type TransactionFinality = "broadcasted" | {confirmed: {timeoutMs?: number}}
 export type SimulateResponse = Awaited<ReturnType<ReturnType<CosmWasmClient["forceGetQueryClient"]>["tx"]["simulate"]>>;
 interface ClientEnvConstruct {
 	account: AccountData | null
@@ -278,22 +286,22 @@ export class ClientEnv {
 	/**
 	 * 
 	 * @param tx the transcation hash
-	 * @param timeoutMs how long to wait until timing out
+	 * @param timeoutMs how long to wait until timing out. Defaults to 60 seconds
 	 * @param throwOnTimeout whether or not to throw an error if the timeout time has elapsed instead of returning null
 	 * @returns the confirmed transaction, or null if we waited too long and `throwOnTimeout` is falsy
 	 */
-	async waitForTxConfirm(tx: string, timeoutMs: number, throwOnTimeout?: boolean): Promise<DeliverTxResponse | null>
+	async waitForTxConfirm(tx: string, timeoutMs?: number, throwOnTimeout?: boolean): Promise<DeliverTxResponse | null>
 	/**
 	 * 
 	 * @param tx the transcation hash
-	 * @param timeoutMs how long to wait until timing out
+	 * @param timeoutMs how long to wait until timing out. Defaults to 60 seconds if undefined
 	 * @param throwOnTimeout you explicitly set this to `true`, so prepare for error throwing
 	 * @returns the confirmed transaction
 	 */
-	async waitForTxConfirm(tx: string, timeoutMs: number, throwOnTimeout: true): Promise<DeliverTxResponse>
+	async waitForTxConfirm(tx: string, timeoutMs: number | undefined, throwOnTimeout: true): Promise<DeliverTxResponse>
 	async waitForTxConfirm(
 		tx: string,
-		timeoutMs: number = 60000,
+		timeoutMs: number = DEFAULT_TX_TIMEOUT_MS,
 		throwOnTimeout?: boolean
 	): Promise<DeliverTxResponse | null> {
 		// More stuff that cosmjs implements internally that doesn't get exposed to us
@@ -317,43 +325,163 @@ export class ClientEnv {
 		};
 	}
 
+	signAndSend(
+		msgs: EncodeObject[]
+	): Promise<DeliverTxResponse>
+	signAndSend(
+		msgs: EncodeObject[],
+		memo?: string
+	): Promise<DeliverTxResponse>
+	signAndSend(
+		msgs: EncodeObject[],
+		memo?: string,
+		fee?: "auto" | StdFee,
+	): Promise<DeliverTxResponse>
+	signAndSend(
+		msgs: EncodeObject[],
+		memo: string | undefined,
+		fee: "auto" | StdFee | undefined,
+		finality: "broadcasted"
+	): Promise<string>
+	signAndSend(
+		msgs: EncodeObject[],
+		memo?: string,
+		fee?: "auto" | StdFee,
+		finality?: {confirmed: {timeoutMs?: number}}
+	): Promise<DeliverTxResponse>
+	signAndSend(
+		msgs: EncodeObject[],
+		memo?: string,
+		fee?: "auto" | StdFee,
+		finality?: TransactionFinality
+	): Promise<DeliverTxResponse | string>
 	async signAndSend(
 		msgs: EncodeObject[],
 		memo: string = "",
-		fee: "auto" | StdFee = "auto"
-	): Promise<DeliverTxResponse> {
+		fee: "auto" | StdFee = "auto",
+		finality: TransactionFinality = {confirmed: {}}
+	): Promise<DeliverTxResponse | string> {
 		if (!this.isSignable()) {
 			throw new Error("Cannot execute transactions - " + this.readonlyReason);
 		}
-		const result = await this.wasmClient.signAndBroadcast(this.account.address, msgs, fee, memo)
-		/*
-		if (isDeliverTxFailure(result)) {
-			throw new TransactionError(result.code, result.transactionHash, result.rawLog + "")
+		const transactionHash = await this.wasmClient.signAndBroadcastSync(this.account.address, msgs, fee, memo);
+		if (finality == "broadcasted") {
+			seiUtilEventEmitter.emit("transactionBroadcasted", {
+				chainId: this.chainId,
+				sender: this.account.address,
+				transactionHash,
+				awaiting: false
+			});
+			return transactionHash;
 		}
-		*/
+		seiUtilEventEmitter.emit("transactionBroadcasted", {
+			chainId: this.chainId,
+			sender: this.account.address,
+			transactionHash,
+			awaiting: true
+		});
+		const {confirmed: {timeoutMs = DEFAULT_TX_TIMEOUT_MS}} = finality;
+		const result = await this.waitForTxConfirm(transactionHash, timeoutMs);
+		if (result == null) {
+			seiUtilEventEmitter.emit("transactionTimeout", {
+				chainId: this.chainId,
+				sender: this.account.address,
+				transactionHash
+			});
+			throw new TimeoutError(
+				"Transaction " + transactionHash + " wasn't confirmed within " + (timeoutMs / 1000) + " seconds. " +
+					"You may want to check this again later",
+					transactionHash
+			);
+		}
 		seiUtilEventEmitter.emit("transactionConfirmed", {
 			chainId: this.chainId,
 			sender: this.account.address,
-			result
+			result,
 		});
 		return result
 	}
+
+	executeContract(
+		instruction: ExecuteInstruction
+	): Promise<DeliverTxResponse>
+	executeContract(
+		instruction: ExecuteInstruction,
+		memo?: string
+	): Promise<DeliverTxResponse>
+	executeContract(
+		instruction: ExecuteInstruction,
+		memo?: string,
+		fee?: "auto" | StdFee,
+	): Promise<DeliverTxResponse>
+	executeContract(
+		instruction: ExecuteInstruction,
+		memo: string | undefined,
+		fee: "auto" | StdFee | undefined,
+		finality: "broadcasted"
+	): Promise<string>
+	executeContract(
+		instruction: ExecuteInstruction,
+		memo?: string,
+		fee?: "auto" | StdFee,
+		finality?: {confirmed: {timeoutMs?: number}}
+	): Promise<DeliverTxResponse>
+	executeContract(
+		instruction: ExecuteInstruction,
+		memo?: string,
+		fee?: "auto" | StdFee,
+		finality?: TransactionFinality
+	): Promise<DeliverTxResponse | string>
 	executeContract(
 		instruction: ExecuteInstruction,
 		memo: string = "",
-		fee: "auto" | StdFee = "auto"
-	): Promise<DeliverTxResponse> {
-		return this.executeContractMulti([instruction], memo, fee);
+		fee: "auto" | StdFee = "auto",
+		finality: TransactionFinality = {confirmed: {}}
+	): Promise<DeliverTxResponse | string> {
+		return this.executeContractMulti([instruction], memo, fee, finality);
 	}
+
+	executeContractMulti(
+		instructions: ExecuteInstruction[]
+	): Promise<DeliverTxResponse>
+	executeContractMulti(
+		instructions: ExecuteInstruction[],
+		memo?: string
+	): Promise<DeliverTxResponse>
+	executeContractMulti(
+		instructions: ExecuteInstruction[],
+		memo?: string,
+		fee?: "auto" | StdFee,
+	): Promise<DeliverTxResponse>
+	executeContractMulti(
+		instructions: ExecuteInstruction[],
+		memo: string | undefined,
+		fee: "auto" | StdFee | undefined,
+		finality: "broadcasted"
+	): Promise<string>
+	executeContractMulti(
+		instructions: ExecuteInstruction[],
+		memo?: string,
+		fee?: "auto" | StdFee,
+		finality?: {confirmed: {timeoutMs?: number}}
+	): Promise<DeliverTxResponse>
+	executeContractMulti(
+		instructions: ExecuteInstruction[],
+		memo?: string,
+		fee?: "auto" | StdFee,
+		finality?: TransactionFinality
+	): Promise<DeliverTxResponse | string>
 	executeContractMulti(
 		instructions: ExecuteInstruction[],
 		memo: string = "",
-		fee: "auto" | StdFee = "auto"
-	): Promise<DeliverTxResponse> {
+		fee: "auto" | StdFee = "auto",
+		finality: TransactionFinality = {confirmed: {}}
+	): Promise<DeliverTxResponse | string> {
 		return this.signAndSend(
 			this.execIxsToCosmosMsgs(instructions),
 			memo,
-			fee
+			fee,
+			finality
 		);
 	}
 	/**
