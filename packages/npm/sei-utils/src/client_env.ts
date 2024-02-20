@@ -4,7 +4,7 @@ import { KNOWN_SEI_PROVIDER_INFO, KnownSeiProviders, SeiWallet, getCosmWasmClien
 import { seiUtilEventEmitter } from "./events.js";
 import { EncodeObject, OfflineSigner } from "@cosmjs/proto-signing";
 import { SeiChainNetConfig, getDefaultNetworkConfig } from "./chain_config.js";
-import { DeliverTxResponse, GasPrice, calculateFee, isDeliverTxFailure } from "@cosmjs/stargate";
+import { DeliverTxResponse, GasPrice, IndexedTx, TimeoutError, calculateFee, isDeliverTxFailure } from "@cosmjs/stargate";
 import { nativeDenomSortCompare } from "./funds_util.js";
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx.js";
 import { Addr } from "./common_sei_types.js";
@@ -42,6 +42,7 @@ interface ClientEnvConstruct {
 	readonlyReason: string
 }
 let defaultProvider: MaybeSelectedProvider = null;
+let defaultGasPrice = GasPrice.fromString("0.1usei");
 export class ClientEnv {
 	account: AccountData | null
 	chainId: string
@@ -75,6 +76,12 @@ export class ClientEnv {
 				}
 			);
 		}
+	}
+	static setDefaultGasPrice(gasPrice: GasPrice) {
+		defaultGasPrice = gasPrice;
+	}
+	static getDefaultGasPrice(): GasPrice {
+		return defaultGasPrice;
 	}
 	static async setDefaultProvider(provider: MaybeSelectedProvider, dontThrowOnFail: boolean = false) {
 		const oldProvider = defaultProvider;
@@ -186,7 +193,8 @@ export class ClientEnv {
 	static async get<T extends typeof ClientEnv>(
 		this: T,
 		provider: MaybeSelectedProvider = defaultProvider,
-		networkConfig: SeiChainNetConfig = getDefaultNetworkConfig()
+		networkConfig: SeiChainNetConfig = getDefaultNetworkConfig(),
+		gasPrice: GasPrice = defaultGasPrice
 	): Promise<InstanceType<T>> {
 		const queryClient = await getQueryClient(networkConfig.restUrl);
 
@@ -220,7 +228,7 @@ export class ClientEnv {
 					networkConfig.rpcUrl,
 					signer,
 					{
-						gasPrice: GasPrice.fromString("0.1usei")
+						gasPrice
 					}
 				),
 				accounts[0],
@@ -267,6 +275,48 @@ export class ClientEnv {
 		return this.account != null;
 	}
 
+	/**
+	 * 
+	 * @param tx the transcation hash
+	 * @param timeoutMs how long to wait until timing out
+	 * @param throwOnTimeout whether or not to throw an error if the timeout time has elapsed instead of returning null
+	 * @returns the confirmed transaction, or null if we waited too long and `throwOnTimeout` is falsy
+	 */
+	async waitForTxConfirm(tx: string, timeoutMs: number, throwOnTimeout?: boolean): Promise<DeliverTxResponse | null>
+	/**
+	 * 
+	 * @param tx the transcation hash
+	 * @param timeoutMs how long to wait until timing out
+	 * @param throwOnTimeout you explicitly set this to `true`, so prepare for error throwing
+	 * @returns the confirmed transaction
+	 */
+	async waitForTxConfirm(tx: string, timeoutMs: number, throwOnTimeout: true): Promise<DeliverTxResponse>
+	async waitForTxConfirm(
+		tx: string,
+		timeoutMs: number = 60000,
+		throwOnTimeout?: boolean
+	): Promise<DeliverTxResponse | null> {
+		// More stuff that cosmjs implements internally that doesn't get exposed to us
+		let result: IndexedTx | null = null;
+		const startTime = Date.now();
+		
+		while(result == null && (Date.now() - startTime) < timeoutMs) {
+			await new Promise(resolve => {setTimeout(resolve, 200 + Math.random() * 300)});
+			result = await this.wasmClient.getTx(tx);
+		}
+		if (result == null && throwOnTimeout) {
+			throw new TimeoutError(
+				"Transaction " + tx + " wasn't confirmed within " + (timeoutMs / 1000) + " seconds. " +
+					"You may want to check this again later",
+				tx
+			);
+		}
+		return result == null ? null : {
+			transactionHash: tx,
+			...result
+		};
+	}
+
 	async signAndSend(
 		msgs: EncodeObject[],
 		memo: string = "",
@@ -285,7 +335,7 @@ export class ClientEnv {
 			chainId: this.chainId,
 			sender: this.account.address,
 			result
-		})
+		});
 		return result
 	}
 	executeContract(
@@ -324,11 +374,23 @@ export class ClientEnv {
 			sequence
 		)
 	}
+	/**
+	 * convenience function for simulating transactions containing cosmwasm messages
+	 * 
+	 * @param instructions cosmwasm instructions to execute
+	 * @returns the simulation result
+	 */
 	async simulateContractMulti(
 		instructions: ExecuteInstruction[]
 	): Promise<SimulateResponse> {
 		return this.simulateTransaction(this.execIxsToCosmosMsgs(instructions));
 	}
+	/**
+	 * convenience function for simulating transactions containing a single cosmwasm message
+	 * 
+	 * @param instruction cosmwasm instructions to execute
+	 * @returns the simulation result
+	 */
 	async simulateContract(
 		instruction: ExecuteInstruction
 	): Promise<SimulateResponse> {
