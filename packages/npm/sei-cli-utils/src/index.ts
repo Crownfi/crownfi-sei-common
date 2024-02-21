@@ -58,8 +58,6 @@ export async function fundFromLocalKeychain(fromName: string, toClient: ClientEn
 		throw new Error("Couldn't find \"" + fromName + "\" in seid keychain");
 	}
 	const amountAsString = typeof amount == "string" ? amount : (amount.amount + amount.denom);
-	console.log("Admin address:", adminAddress);
-	console.log("txing", amountAsString, "from", adminAddress, toClient.getAccount().address);
 	const {stdout: txCmdOutput} = await spawn(
 		"seid",
 		[

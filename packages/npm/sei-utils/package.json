@@ -1,9 +1,9 @@
 {
 	"name": "@crownfi/sei-utils",
-	"version": "0.2.10",
+	"version": "0.2.11",
 	"main": "dist/index.js",
 	"type": "module",
-	"license": "MIT",
+	"license": "UNLICENSED",
 	"scripts": {
 		"build": "rm -rf dist/* && mkdir -p dist && tsc"
 	},
@@ -22,5 +22,6 @@
 	},
 	"publishConfig": {
 		"registry": "https://npm.crownfi.io"
-	}
+	},
+	"files": ["dist"]
 }

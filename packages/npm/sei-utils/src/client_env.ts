@@ -243,9 +243,6 @@ export class ClientEnv {
 				""
 			]
 		})();
-		if (account != null) {
-			console.info("Found user address:", account.address);
-		}
 		return new this({ account, chainId: networkConfig.chainId, wasmClient, queryClient, readonlyReason }) as InstanceType<T>;
 	}
 	/**
