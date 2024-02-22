@@ -188,14 +188,21 @@ export class ClientEnv {
 				address: provider.address
 			};
 		}
-		const signer = await (new SeiWallet(provider)).getOfflineSigner(networkConfig.chainId);
-		if (signer == undefined) {
+		try{
+			const signer = await (new SeiWallet(provider)).getOfflineSigner(networkConfig.chainId);
+			if (signer == undefined) {
+				return {
+					failure: KNOWN_SEI_PROVIDER_INFO[provider].name +
+						" did not provide a signer. (Is the wallet unlocked and are we authorized?)"
+				};
+			}
+			return {signer};
+		}catch(ex: any) {
 			return {
 				failure: KNOWN_SEI_PROVIDER_INFO[provider].name +
-					" did not provide a signer. (Is the wallet unlocked and are we authorized?)"
+					" says \"" + ex.name + ": " + ex.message + "\""
 			};
 		}
-		return {signer};
 	}
 
 	static async get<T extends typeof ClientEnv>(
