@@ -231,3 +231,66 @@ impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for Store
 		))
 	}
 }
+
+
+#[cfg(test)]
+mod tests {
+	use std::{cell::RefCell, rc::Rc};
+	use crate::env::ClonableEnvInfoMut;
+	use super::*;
+	use cosmwasm_std::{Addr, Coin, Uint128};
+	use cw_multi_test::{App, ContractWrapper, Executor};
+
+	fn init_test_app(owner: &Addr) -> App {
+		App::new(|router, _, storage| {
+			// initialization moved to App construction
+			router.bank.init_balance(
+				storage,
+				owner,
+				vec![
+					Coin {
+						denom: "usei".into(),
+						amount: Uint128::new(100_000_000_000u128),
+					}
+				],
+			).unwrap()
+		})
+	}
+	#[test]
+	fn stored_map_iter() {
+		// Seed phrase: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
+		// With sei/cosmos default coin type
+		let tester_addr = Addr::unchecked("sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m");
+		let mut app = init_test_app(&tester_addr);
+		let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
+
+		let stored_map = StoredMap::<String, String>::new(b"namespace", storage.clone());
+		stored_map.set(&"key1".to_string(), &"val1".to_string()).unwrap();
+		assert_eq!(stored_map.get(&"key1".to_string()), Ok(Some("val1".into())));
+		assert_eq!(stored_map.iter().unwrap().next(), Some(("key1".into(), "val1".into())));
+		stored_map.set(&"key2".to_string(), &"val2".to_string()).unwrap();
+
+		let mut stored_map_iter = stored_map.iter().unwrap();
+		assert_eq!(stored_map_iter.next(), Some(("key1".into(), "val1".into())));
+		assert_eq!(stored_map_iter.next(), Some(("key2".into(), "val2".into())));
+		assert_eq!(stored_map_iter.next(), None);
+
+		stored_map.set(&"key3".to_string(), &"val3".to_string()).unwrap();
+
+		let mut stored_map_iter = stored_map.iter().unwrap().rev();
+		assert_eq!(stored_map_iter.next(), Some(("key3".into(), "val3".into())));
+		assert_eq!(stored_map_iter.next(), Some(("key2".into(), "val2".into())));
+		assert_eq!(stored_map_iter.next(), Some(("key1".into(), "val1".into())));
+		assert_eq!(stored_map_iter.next(), None);
+
+		let mut stored_map_iter = stored_map.iter_range(Some("key".into()), Some("key3".into())).unwrap();
+		assert_eq!(stored_map_iter.next(), Some(("key1".into(), "val1".into())));
+		assert_eq!(stored_map_iter.next(), Some(("key2".into(), "val2".into())));
+		assert_eq!(stored_map_iter.next(), None);
+
+		let mut stored_map_iter = stored_map.iter_range(Some("key1".into()), None).unwrap();
+		assert_eq!(stored_map_iter.next(), Some(("key2".into(), "val2".into())));
+		assert_eq!(stored_map_iter.next(), Some(("key3".into(), "val3".into())));
+		assert_eq!(stored_map_iter.next(), None);
+	}
+}

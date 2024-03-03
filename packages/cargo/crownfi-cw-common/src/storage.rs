@@ -246,7 +246,9 @@ impl<'exec> MaybeMutableStorage<'exec> {
 	/// Returns the lexicographically next key/value pair after the specified key.
 	/// Used for implementing double-ended iterators and to allow multiple mutable iterators to exist at once.
 	pub fn next_record(&self, key: &[u8], before: Option<&[u8]>) -> Option<(Vec<u8>, Vec<u8>)> {
-		let next_key = lexicographic_next(key);
+		let mut next_key = Vec::with_capacity(key.len() + 1);
+		next_key.extend_from_slice(key);
+		next_key.push(0);
 		match self {
 			MaybeMutableStorage::Immutable(storage) => {
 				// I have no idea why this behaviour isn't just already exposed.
