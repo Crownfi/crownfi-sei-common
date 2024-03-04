@@ -1,4 +1,4 @@
 #!/bin/env sh
 
-prettier -w package.json packages/npm
+npx prettier -w package.json packages/npm
 cargo fmt

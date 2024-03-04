@@ -2,13 +2,16 @@
 	"name": "@crownfi/sei-common-workspace",
 	"version": "1.0.0",
 	"scripts": {
-	  "build": "echo \"TODO: build all packages\" && exit 1",
-	  "test": "echo \"TODO\" && exit 1",
-	  "release": "echo \"TODO\" && exit 1"
+		"build": "echo \"TODO: build all packages\" && exit 1",
+		"test": "echo \"TODO\" && exit 1",
+		"format": "prettier -w package.json packages/npm && cargo fmt",
+		"release": "echo \"TODO\" && exit 1"
 	},
 	"private": true,
 	"workspaces": [
-	  "packages/npm/*"
-	]
-  }
-  
+		"packages/npm/*"
+	],
+	"devDependencies": {
+		"prettier": "^3.2.5"
+	}
+}
