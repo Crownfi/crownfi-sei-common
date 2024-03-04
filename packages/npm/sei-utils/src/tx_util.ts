@@ -38,3 +38,30 @@ export function makeTxExecErrLessFugly(
 		return null;
 	}
 }
+
+export function makeQueryErrLessFugly(message: string): { errorSource: string; errorDetail: string } | null {
+	let betterErrorFormat = /^Query failed with \((\d*?)\)\: (?:.*\n)*\s*(.*)\:\s*(.*)\:\s*(.*)$/.exec(message);
+	if (betterErrorFormat) {
+		// const errorCode = betterErrorFormat[1];
+		if (betterErrorFormat[4] == "invalid request") {
+			if (betterErrorFormat[3] == "query wasm contract failed") {
+				return {
+					errorSource: "Contract returned an error",
+					errorDetail: betterErrorFormat[2],
+				};
+			} else {
+				return {
+					errorSource: "Invalid query",
+					errorDetail: betterErrorFormat[2] + ": " + betterErrorFormat[3],
+				};
+			}
+		} else {
+			return {
+				errorSource: betterErrorFormat[4],
+				errorDetail: betterErrorFormat[2] + ": " + betterErrorFormat[3],
+			};
+		}
+	} else {
+		return null;
+	}
+}
