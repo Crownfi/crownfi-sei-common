@@ -1,4 +1,4 @@
-import { CosmWasmClient, ExecuteInstruction, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate"
+import { CosmWasmClient, ExecuteInstruction, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { Addr, ContractVersionInfo } from "./common_sei_types.js";
 import { Coin } from "@cosmjs/amino";
 import semverSatisfies from "semver/functions/satisfies.js";
@@ -6,28 +6,35 @@ import semverSatisfies from "semver/functions/satisfies.js";
 const CONTRACT_INFO_KEY = Buffer.from("contract_info");
 
 export class ContractVersionNotSatisfiedError extends Error {
-	name!: "ContractVersionNotSatisfiedError"
-	contractAddress: Addr
-	expectedVersions: {[name: string]: string}
-	actualVersionInfo: ContractVersionInfo | null
+	name!: "ContractVersionNotSatisfiedError";
+	contractAddress: Addr;
+	expectedVersions: { [name: string]: string };
+	actualVersionInfo: ContractVersionInfo | null;
 	constructor(
 		contractAddress: Addr,
-		expectedVersions: {[name: string]: string},
+		expectedVersions: { [name: string]: string },
 		actualVersionInfo: ContractVersionInfo | null
-	){
+	) {
 		if (actualVersionInfo) {
 			super(
-				"Expected contract " + contractAddress + " to be compatible with " + 
-				Object.keys(expectedVersions).map((name) => {
-					name + "@" + expectedVersions[name]
-				}).join(", ") + "; " +
-				"but the actual contract version information was " +
-				actualVersionInfo.name + "@" + actualVersionInfo.version
+				"Expected contract " +
+					contractAddress +
+					" to be compatible with " +
+					Object.keys(expectedVersions)
+						.map((name) => {
+							name + "@" + expectedVersions[name];
+						})
+						.join(", ") +
+					"; " +
+					"but the actual contract version information was " +
+					actualVersionInfo.name +
+					"@" +
+					actualVersionInfo.version
 			);
-		}else{
-			super("The contract at " + contractAddress + " has no version information; perhaps it doesn't exist")
+		} else {
+			super("The contract at " + contractAddress + " has no version information; perhaps it doesn't exist");
 		}
-		
+
 		this.contractAddress = contractAddress;
 		this.expectedVersions = expectedVersions;
 		this.actualVersionInfo = actualVersionInfo;
@@ -64,28 +71,20 @@ export class ContractBase {
 	 * specified. Otherwise, the promise is rejected with a `ContractVersionNotSatisfiedError`.
 	 * @param versions A map of name => version. e.g. `{"my-awesome-contract": "^1.0.0"}`
 	 */
-	async checkVersion(versions: {[name: string]: string}): Promise<void> {
+	async checkVersion(versions: { [name: string]: string }): Promise<void> {
 		const versionInfo = await this.getVersion();
 		if (versionInfo == null) {
-			throw new ContractVersionNotSatisfiedError(
-				this.address,
-				versions,
-				versionInfo
-			);
+			throw new ContractVersionNotSatisfiedError(this.address, versions, versionInfo);
 		}
 		const expectedVersion = versions[versionInfo.name];
 		if (!expectedVersion || !semverSatisfies(versionInfo.version, expectedVersion)) {
-			throw new ContractVersionNotSatisfiedError(
-				this.address,
-				versions,
-				versionInfo
-			);
+			throw new ContractVersionNotSatisfiedError(this.address, versions, versionInfo);
 		}
 	}
 	/**
 	 * Executes the contracts `query` function with the specified payload encoded as JSON
-	 * @param msg 
-	 * @returns 
+	 * @param msg
+	 * @returns
 	 */
 	query(msg: any): Promise<any> {
 		return this.endpoint.queryContractSmart(this.address, msg);
@@ -93,7 +92,7 @@ export class ContractBase {
 	executeIx(msg: any, funds?: Coin[]): ExecuteInstruction {
 		const result: ExecuteInstruction = {
 			contractAddress: this.address,
-			msg
+			msg,
 		};
 		if (funds) {
 			result.funds = funds;
@@ -112,13 +111,9 @@ export class ContractBase {
 					contract: this.address,
 					// I can't believe no one took a look at base64-encoded-json and thought:
 					// "How is this supposed to be fast?"
-					msg:(Buffer.isBuffer(msg) ? msg : Buffer.from(
-						JSON.stringify(
-							msg
-						)
-					)).toString("base64")
-				}
-			}
+					msg: (Buffer.isBuffer(msg) ? msg : Buffer.from(JSON.stringify(msg))).toString("base64"),
+				},
+			},
 		};
 	}
 }

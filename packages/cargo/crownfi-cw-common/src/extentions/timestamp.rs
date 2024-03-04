@@ -14,7 +14,7 @@ impl TimestampExtentions for Timestamp {
 	fn from_millis(milliseconds_since_epoch: u64) -> Self {
 		Timestamp::from_nanos(milliseconds_since_epoch * 1_000_000)
 	}
-	
+
 	#[inline]
 	fn millis(&self) -> u64 {
 		self.nanos() / 1_000_000

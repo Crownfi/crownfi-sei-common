@@ -2,16 +2,16 @@ import { ClientEnv } from "./client_env.js";
 import { seiUtilEventEmitter } from "./events.js";
 
 export declare const KNOWN_SEI_NETWORKS: readonly ["sei-chain", "atlantic-2", "pacific-1"];
-export type KnownSeiChainId = typeof KNOWN_SEI_NETWORKS[number];
+export type KnownSeiChainId = (typeof KNOWN_SEI_NETWORKS)[number];
 export type SeiChainId = string | KnownSeiChainId;
 
 export type SeiChainNetConfig<C extends string = SeiChainId> = {
-	chainId: C,
-	rpcUrl: string,
-	restUrl: string
+	chainId: C;
+	rpcUrl: string;
+	restUrl: string;
 };
 
-const seiNetConfigs: {[chainId: SeiChainId]: SeiChainNetConfig<SeiChainId>} = {
+const seiNetConfigs: { [chainId: SeiChainId]: SeiChainNetConfig<SeiChainId> } = {
 	"sei-chain": {
 		chainId: "sei-chain",
 		rpcUrl: "http://127.0.0.1:26657",
@@ -20,24 +20,24 @@ const seiNetConfigs: {[chainId: SeiChainId]: SeiChainNetConfig<SeiChainId>} = {
 	"atlantic-2": {
 		chainId: "atlantic-2",
 		rpcUrl: "https://rpc.atlantic-2.seinetwork.io/",
-		restUrl: "https://rest.atlantic-2.seinetwork.io/"
+		restUrl: "https://rest.atlantic-2.seinetwork.io/",
 	},
 	// This is temporary until we set up our own
 	"pacific-1": {
 		chainId: "pacific-1",
 		rpcUrl: "https://sei-rpc.polkachu.com/",
-		restUrl: "https://sei-api.polkachu.com/"
-	}
-}
+		restUrl: "https://sei-api.polkachu.com/",
+	},
+};
 
 /**
  * Adds the specified network config so that it can be selected with `setDefaultNetwork`.
  * This can also be used to change the endpoints for a public chain.
- * @param configs 
+ * @param configs
  */
 export function setNetworkConfig(...configs: SeiChainNetConfig[]) {
 	for (let i = 0; i < configs.length; i += 1) {
-		seiNetConfigs[configs[i].chainId] = configs[i]
+		seiNetConfigs[configs[i].chainId] = configs[i];
 	}
 }
 
@@ -59,7 +59,7 @@ export function setDefaultNetwork(network: SeiChainId) {
 	}
 }
 
-export function getNetworkConfig<C extends SeiChainId>(network: C) : SeiChainNetConfig<C> | null {
+export function getNetworkConfig<C extends SeiChainId>(network: C): SeiChainNetConfig<C> | null {
 	const result = seiNetConfigs[network];
 	if (result == null) {
 		return null;

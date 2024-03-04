@@ -1,4 +1,4 @@
-use schemars::schema::{SchemaObject, Schema, SingleOrVec};
+use schemars::schema::{Schema, SchemaObject, SingleOrVec};
 
 pub(crate) trait SchemaStructExtentions {
 	fn as_object(&self) -> Option<&SchemaObject>;
@@ -23,7 +23,9 @@ pub(crate) trait SingleOrVecStructExtentions<T> {
 	/// Returns the object _only_ if it's a single. Returns None if this is a vec whether or not it contains elements.
 	fn as_single(&self) -> Option<&T>;
 	/// Creates an iterator that only returns once (if it's a single) or the entire vec
-	fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T> where T: 'a;
+	fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
+	where
+		T: 'a;
 }
 
 impl<T> SingleOrVecStructExtentions<T> for SingleOrVec<T> {
@@ -52,8 +54,11 @@ impl<T> SingleOrVecStructExtentions<T> for SingleOrVec<T> {
 			SingleOrVec::Vec(_) => None,
 		}
 	}
-	
-	fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a T> + 'a> where T: 'a {
+
+	fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a T> + 'a>
+	where
+		T: 'a,
+	{
 		match self {
 			SingleOrVec::Single(val) => Box::new(std::iter::once(&**val)),
 			SingleOrVec::Vec(val) => Box::new(val.iter()),

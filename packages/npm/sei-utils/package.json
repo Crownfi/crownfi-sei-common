@@ -23,5 +23,7 @@
 	"publishConfig": {
 		"registry": "https://npm.crownfi.io"
 	},
-	"files": ["dist"]
+	"files": [
+		"dist"
+	]
 }

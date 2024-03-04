@@ -1,6 +1,21 @@
-import { AccountData, Coin, StdFee, encodeSecp256k1Pubkey } from "@cosmjs/amino"
-import { CosmWasmClient, ExecuteInstruction, InstantiateResult, MigrateResult, MsgExecuteContractEncodeObject, SigningCosmWasmClient, UploadResult } from "@cosmjs/cosmwasm-stargate"
-import { KNOWN_SEI_PROVIDER_INFO, KnownSeiProviders, SeiWallet, getCosmWasmClient, getQueryClient, getSigningCosmWasmClient } from "@crownfi/sei-js-core"
+import { AccountData, Coin, StdFee, encodeSecp256k1Pubkey } from "@cosmjs/amino";
+import {
+	CosmWasmClient,
+	ExecuteInstruction,
+	InstantiateResult,
+	MigrateResult,
+	MsgExecuteContractEncodeObject,
+	SigningCosmWasmClient,
+	UploadResult,
+} from "@cosmjs/cosmwasm-stargate";
+import {
+	KNOWN_SEI_PROVIDER_INFO,
+	KnownSeiProviders,
+	SeiWallet,
+	getCosmWasmClient,
+	getQueryClient,
+	getSigningCosmWasmClient,
+} from "@crownfi/sei-js-core";
 import { seiUtilEventEmitter } from "./events.js";
 import { EncodeObject, OfflineSigner } from "@cosmjs/proto-signing";
 import { SeiChainNetConfig, getDefaultNetworkConfig } from "./chain_config.js";
@@ -12,16 +27,16 @@ import { Addr } from "./common_sei_types.js";
 const DEFAULT_TX_TIMEOUT_MS = 60000;
 
 export type MaybeSelectedProviderString = KnownSeiProviders | "seed-wallet" | "read-only-address" | null;
-export type MaybeSelectedProvider = KnownSeiProviders | {seed: string, index?: number} | {address: string} | null;
+export type MaybeSelectedProvider = KnownSeiProviders | { seed: string; index?: number } | { address: string } | null;
 
 export class TransactionError extends Error {
-	name!: "TransactionError"
+	name!: "TransactionError";
 	public constructor(
 		public code: string | number,
 		public txhash: string | undefined,
-		public rawLog: string,
+		public rawLog: string
 	) {
-		super("Transaction confirmed with an error")
+		super("Transaction confirmed with an error");
 	}
 }
 TransactionError.prototype.name == "TransactionError";
@@ -40,24 +55,23 @@ function maybeProviderToMaybeString(provider: MaybeSelectedProvider): MaybeSelec
  * A value of `"broadcasted"` means to wait until a transaction is sent. While `{confirmed: {...}}` means waiting until
  * the transaction has been sent and processed. With an optional timeout time, which usually defaults to 60 seconds.
  */
-export type TransactionFinality = "broadcasted" | {confirmed: {timeoutMs?: number}}
+export type TransactionFinality = "broadcasted" | { confirmed: { timeoutMs?: number } };
 export type SimulateResponse = Awaited<ReturnType<ReturnType<CosmWasmClient["forceGetQueryClient"]>["tx"]["simulate"]>>;
 interface ClientEnvConstruct {
-	account: AccountData | null
-	chainId: string
-	wasmClient: SigningCosmWasmClient | CosmWasmClient
-	queryClient: Awaited<ReturnType<typeof getQueryClient>>
-	readonlyReason: string
+	account: AccountData | null;
+	chainId: string;
+	wasmClient: SigningCosmWasmClient | CosmWasmClient;
+	queryClient: Awaited<ReturnType<typeof getQueryClient>>;
+	readonlyReason: string;
 }
 let defaultProvider: MaybeSelectedProvider = null;
 let defaultGasPrice = GasPrice.fromString("0.1usei");
 export class ClientEnv {
-	account: AccountData | null
-	chainId: string
-	wasmClient: SigningCosmWasmClient | CosmWasmClient
-	queryClient: Awaited<ReturnType<typeof getQueryClient>>
-	readonlyReason: string
-
+	account: AccountData | null;
+	chainId: string;
+	wasmClient: SigningCosmWasmClient | CosmWasmClient;
+	queryClient: Awaited<ReturnType<typeof getQueryClient>>;
+	readonlyReason: string;
 
 	static getDefaultProvider(): MaybeSelectedProviderString {
 		return maybeProviderToMaybeString(defaultProvider);
@@ -68,21 +82,15 @@ export class ClientEnv {
 	static nullifyDefaultProvider() {
 		if (defaultProvider != null) {
 			defaultProvider = null;
-			seiUtilEventEmitter.emit(
-				"defaultProviderChangeRequest",
-				{
-					status: "success",
-					provider: null
-				}
-			);
-			seiUtilEventEmitter.emit(
-				"defaultProviderChanged",
-				{
-					chainId: getDefaultNetworkConfig().chainId,
-					provider: null,
-					account: null
-				}
-			);
+			seiUtilEventEmitter.emit("defaultProviderChangeRequest", {
+				status: "success",
+				provider: null,
+			});
+			seiUtilEventEmitter.emit("defaultProviderChanged", {
+				chainId: getDefaultNetworkConfig().chainId,
+				provider: null,
+				account: null,
+			});
 		}
 	}
 	static setDefaultGasPrice(gasPrice: GasPrice) {
@@ -110,57 +118,39 @@ export class ClientEnv {
 		}
 		const newProviderString = maybeProviderToMaybeString(defaultProvider);
 		if (defaultProvider == null) {
-			seiUtilEventEmitter.emit(
-				"defaultProviderChangeRequest",
-				{
-					status: "success",
-					provider: newProviderString
-				}
-			);
-			seiUtilEventEmitter.emit(
-				"defaultProviderChanged",
-				{
-					chainId: getDefaultNetworkConfig().chainId,
-					provider: newProviderString,
-					account: null
-				}
-			);
+			seiUtilEventEmitter.emit("defaultProviderChangeRequest", {
+				status: "success",
+				provider: newProviderString,
+			});
+			seiUtilEventEmitter.emit("defaultProviderChanged", {
+				chainId: getDefaultNetworkConfig().chainId,
+				provider: newProviderString,
+				account: null,
+			});
 		} else {
-			try{
-				seiUtilEventEmitter.emit(
-					"defaultProviderChangeRequest",
-					{
-						status: "requesting",
-						provider: newProviderString
-					}
-				);
+			try {
+				seiUtilEventEmitter.emit("defaultProviderChangeRequest", {
+					status: "requesting",
+					provider: newProviderString,
+				});
 				const clientEnv = await ClientEnv.get();
 				const clientAccount = clientEnv.getAccount();
-				seiUtilEventEmitter.emit(
-					"defaultProviderChangeRequest",
-					{
-						status: "success",
-						provider: newProviderString
-					}
-				);
-				seiUtilEventEmitter.emit(
-					"defaultProviderChanged",
-					{
-						chainId: getDefaultNetworkConfig().chainId,
-						provider: newProviderString,
-						account: clientAccount
-					}
-				);
-			}catch(ex) {
+				seiUtilEventEmitter.emit("defaultProviderChangeRequest", {
+					status: "success",
+					provider: newProviderString,
+				});
+				seiUtilEventEmitter.emit("defaultProviderChanged", {
+					chainId: getDefaultNetworkConfig().chainId,
+					provider: newProviderString,
+					account: clientAccount,
+				});
+			} catch (ex) {
 				defaultProvider = oldProvider;
-				seiUtilEventEmitter.emit(
-					"defaultProviderChangeRequest",
-					{
-						status: "failure",
-						provider: newProviderString,
-						failureException: ex
-					}
-				);
+				seiUtilEventEmitter.emit("defaultProviderChangeRequest", {
+					status: "failure",
+					provider: newProviderString,
+					failureException: ex,
+				});
 				if (!dontThrowOnFail) {
 					throw ex;
 				}
@@ -170,37 +160,37 @@ export class ClientEnv {
 	private static async getSigner(
 		provider: MaybeSelectedProvider,
 		networkConfig: SeiChainNetConfig
-	): Promise<{signer: OfflineSigner} | {failure: string} | {address: string}> {
+	): Promise<{ signer: OfflineSigner } | { failure: string } | { address: string }> {
 		if (provider == null) {
 			return {
-				failure: "No wallet selected"
+				failure: "No wallet selected",
 			};
 		}
 		if (typeof provider == "object") {
 			if ("seed" in provider) {
 				// async imports allow us to load the signing stuff only if needed. (hopefully)
-				const {restoreWallet} = await import("@crownfi/sei-js-core");
+				const { restoreWallet } = await import("@crownfi/sei-js-core");
 				return {
-					signer: await restoreWallet(provider.seed, provider.index)
+					signer: await restoreWallet(provider.seed, provider.index),
 				};
 			}
 			return {
-				address: provider.address
+				address: provider.address,
 			};
 		}
-		try{
-			const signer = await (new SeiWallet(provider)).getOfflineSigner(networkConfig.chainId);
+		try {
+			const signer = await new SeiWallet(provider).getOfflineSigner(networkConfig.chainId);
 			if (signer == undefined) {
 				return {
-					failure: KNOWN_SEI_PROVIDER_INFO[provider].name +
-						" did not provide a signer. (Is the wallet unlocked and are we authorized?)"
+					failure:
+						KNOWN_SEI_PROVIDER_INFO[provider].name +
+						" did not provide a signer. (Is the wallet unlocked and are we authorized?)",
 				};
 			}
-			return {signer};
-		}catch(ex: any) {
+			return { signer };
+		} catch (ex: any) {
 			return {
-				failure: KNOWN_SEI_PROVIDER_INFO[provider].name +
-					" says \"" + ex.name + ": " + ex.message + "\""
+				failure: KNOWN_SEI_PROVIDER_INFO[provider].name + ' says "' + ex.name + ": " + ex.message + '"',
 			};
 		}
 	}
@@ -217,45 +207,47 @@ export class ClientEnv {
 			const maybeSigner = await ClientEnv.getSigner(provider, networkConfig);
 			if ("failure" in maybeSigner) {
 				return [await getCosmWasmClient(networkConfig.rpcUrl), null, maybeSigner.failure];
-			}else if ("address" in maybeSigner) {
+			} else if ("address" in maybeSigner) {
 				return [
 					await getCosmWasmClient(networkConfig.rpcUrl),
 					{
 						address: maybeSigner.address,
 						// fake data etc.
 						algo: "secp256k1",
-						pubkey: new Uint8Array(0) 
+						pubkey: new Uint8Array(0),
 					} satisfies AccountData,
-					"Address was provided without a seed nor wallet"
+					"Address was provided without a seed nor wallet",
 				];
 			}
-			const {signer} = maybeSigner;
+			const { signer } = maybeSigner;
 			const accounts = await signer.getAccounts();
 			if (accounts.length !== 1) {
 				return [
 					await getCosmWasmClient(networkConfig.rpcUrl),
 					null,
-					"Expected wallet to expose exactly 1 account but got " + accounts.length + " accounts"
+					"Expected wallet to expose exactly 1 account but got " + accounts.length + " accounts",
 				];
 			}
 			return [
-				await getSigningCosmWasmClient(
-					networkConfig.rpcUrl,
-					signer,
-					{
-						gasPrice
-					}
-				),
+				await getSigningCosmWasmClient(networkConfig.rpcUrl, signer, {
+					gasPrice,
+				}),
 				accounts[0],
-				""
-			]
+				"",
+			];
 		})();
-		return new this({ account, chainId: networkConfig.chainId, wasmClient, queryClient, readonlyReason }) as InstanceType<T>;
+		return new this({
+			account,
+			chainId: networkConfig.chainId,
+			wasmClient,
+			queryClient,
+			readonlyReason,
+		}) as InstanceType<T>;
 	}
 	/**
 	 * use of the constructor is discouraged and isn't guaranteed to be stable. Use the get() function instead.
 	 */
-	constructor({account, chainId, wasmClient, queryClient, readonlyReason}: ClientEnvConstruct) {
+	constructor({ account, chainId, wasmClient, queryClient, readonlyReason }: ClientEnvConstruct) {
 		this.account = account;
 		this.chainId = chainId;
 		this.wasmClient = wasmClient;
@@ -274,35 +266,35 @@ export class ClientEnv {
 	/**
 	 * @returns true if tranasction signing is available and the wallet is known
 	 */
-	isSignable(): this is { wasmClient: SigningCosmWasmClient, account: AccountData } {
-		return (this.wasmClient instanceof SigningCosmWasmClient) && this.account != null;
+	isSignable(): this is { wasmClient: SigningCosmWasmClient; account: AccountData } {
+		return this.wasmClient instanceof SigningCosmWasmClient && this.account != null;
 	}
 
 	/**
 	 * If you want to actually check if transactions can be sent, use the `isSignable` method
-	 * 
+	 *
 	 * @returns true if the wallet is known
 	 */
-	hasAccount(): this is {account: AccountData} {
+	hasAccount(): this is { account: AccountData } {
 		return this.account != null;
 	}
 
 	/**
-	 * 
+	 *
 	 * @param tx the transcation hash
 	 * @param timeoutMs how long to wait until timing out. Defaults to 60 seconds
 	 * @param throwOnTimeout whether or not to throw an error if the timeout time has elapsed instead of returning null
 	 * @returns the confirmed transaction, or null if we waited too long and `throwOnTimeout` is falsy
 	 */
-	async waitForTxConfirm(tx: string, timeoutMs?: number, throwOnTimeout?: boolean): Promise<DeliverTxResponse | null>
+	async waitForTxConfirm(tx: string, timeoutMs?: number, throwOnTimeout?: boolean): Promise<DeliverTxResponse | null>;
 	/**
-	 * 
+	 *
 	 * @param tx the transcation hash
 	 * @param timeoutMs how long to wait until timing out. Defaults to 60 seconds if undefined
 	 * @param throwOnTimeout you explicitly set this to `true`, so prepare for error throwing
 	 * @returns the confirmed transaction
 	 */
-	async waitForTxConfirm(tx: string, timeoutMs: number | undefined, throwOnTimeout: true): Promise<DeliverTxResponse>
+	async waitForTxConfirm(tx: string, timeoutMs: number | undefined, throwOnTimeout: true): Promise<DeliverTxResponse>;
 	async waitForTxConfirm(
 		tx: string,
 		timeoutMs: number = DEFAULT_TX_TIMEOUT_MS,
@@ -311,59 +303,58 @@ export class ClientEnv {
 		// More stuff that cosmjs implements internally that doesn't get exposed to us
 		let result: IndexedTx | null = null;
 		const startTime = Date.now();
-		
-		while(result == null && (Date.now() - startTime) < timeoutMs) {
-			await new Promise(resolve => {setTimeout(resolve, 200 + Math.random() * 300)});
+
+		while (result == null && Date.now() - startTime < timeoutMs) {
+			await new Promise((resolve) => {
+				setTimeout(resolve, 200 + Math.random() * 300);
+			});
 			result = await this.wasmClient.getTx(tx);
 		}
 		if (result == null && throwOnTimeout) {
 			throw new TimeoutError(
-				"Transaction " + tx + " wasn't confirmed within " + (timeoutMs / 1000) + " seconds. " +
+				"Transaction " +
+					tx +
+					" wasn't confirmed within " +
+					timeoutMs / 1000 +
+					" seconds. " +
 					"You may want to check this again later",
 				tx
 			);
 		}
-		return result == null ? null : {
-			transactionHash: tx,
-			...result
-		};
+		return result == null
+			? null
+			: {
+					transactionHash: tx,
+					...result,
+				};
 	}
 
-	signAndSend(
-		msgs: EncodeObject[]
-	): Promise<DeliverTxResponse>
-	signAndSend(
-		msgs: EncodeObject[],
-		memo?: string
-	): Promise<DeliverTxResponse>
-	signAndSend(
-		msgs: EncodeObject[],
-		memo?: string,
-		fee?: "auto" | StdFee,
-	): Promise<DeliverTxResponse>
+	signAndSend(msgs: EncodeObject[]): Promise<DeliverTxResponse>;
+	signAndSend(msgs: EncodeObject[], memo?: string): Promise<DeliverTxResponse>;
+	signAndSend(msgs: EncodeObject[], memo?: string, fee?: "auto" | StdFee): Promise<DeliverTxResponse>;
 	signAndSend(
 		msgs: EncodeObject[],
 		memo: string | undefined,
 		fee: "auto" | StdFee | undefined,
 		finality: "broadcasted"
-	): Promise<string>
+	): Promise<string>;
 	signAndSend(
 		msgs: EncodeObject[],
 		memo?: string,
 		fee?: "auto" | StdFee,
-		finality?: {confirmed: {timeoutMs?: number}}
-	): Promise<DeliverTxResponse>
+		finality?: { confirmed: { timeoutMs?: number } }
+	): Promise<DeliverTxResponse>;
 	signAndSend(
 		msgs: EncodeObject[],
 		memo?: string,
 		fee?: "auto" | StdFee,
 		finality?: TransactionFinality
-	): Promise<DeliverTxResponse | string>
+	): Promise<DeliverTxResponse | string>;
 	async signAndSend(
 		msgs: EncodeObject[],
 		memo: string = "",
 		fee: "auto" | StdFee = "auto",
-		finality: TransactionFinality = {confirmed: {}}
+		finality: TransactionFinality = { confirmed: {} }
 	): Promise<DeliverTxResponse | string> {
 		if (!this.isSignable()) {
 			throw new Error("Cannot execute transactions - " + this.readonlyReason);
@@ -374,7 +365,7 @@ export class ClientEnv {
 				chainId: this.chainId,
 				sender: this.account.address,
 				transactionHash,
-				awaiting: false
+				awaiting: false,
 			});
 			return transactionHash;
 		}
@@ -382,20 +373,26 @@ export class ClientEnv {
 			chainId: this.chainId,
 			sender: this.account.address,
 			transactionHash,
-			awaiting: true
+			awaiting: true,
 		});
-		const {confirmed: {timeoutMs = DEFAULT_TX_TIMEOUT_MS}} = finality;
+		const {
+			confirmed: { timeoutMs = DEFAULT_TX_TIMEOUT_MS },
+		} = finality;
 		const result = await this.waitForTxConfirm(transactionHash, timeoutMs);
 		if (result == null) {
 			seiUtilEventEmitter.emit("transactionTimeout", {
 				chainId: this.chainId,
 				sender: this.account.address,
-				transactionHash
+				transactionHash,
 			});
 			throw new TimeoutError(
-				"Transaction " + transactionHash + " wasn't confirmed within " + (timeoutMs / 1000) + " seconds. " +
+				"Transaction " +
+					transactionHash +
+					" wasn't confirmed within " +
+					timeoutMs / 1000 +
+					" seconds. " +
 					"You may want to check this again later",
-					transactionHash
+				transactionHash
 			);
 		}
 		seiUtilEventEmitter.emit("transactionConfirmed", {
@@ -403,94 +400,75 @@ export class ClientEnv {
 			sender: this.account.address,
 			result,
 		});
-		return result
+		return result;
 	}
 
-	executeContract(
-		instruction: ExecuteInstruction
-	): Promise<DeliverTxResponse>
-	executeContract(
-		instruction: ExecuteInstruction,
-		memo?: string
-	): Promise<DeliverTxResponse>
-	executeContract(
-		instruction: ExecuteInstruction,
-		memo?: string,
-		fee?: "auto" | StdFee,
-	): Promise<DeliverTxResponse>
+	executeContract(instruction: ExecuteInstruction): Promise<DeliverTxResponse>;
+	executeContract(instruction: ExecuteInstruction, memo?: string): Promise<DeliverTxResponse>;
+	executeContract(instruction: ExecuteInstruction, memo?: string, fee?: "auto" | StdFee): Promise<DeliverTxResponse>;
 	executeContract(
 		instruction: ExecuteInstruction,
 		memo: string | undefined,
 		fee: "auto" | StdFee | undefined,
 		finality: "broadcasted"
-	): Promise<string>
+	): Promise<string>;
 	executeContract(
 		instruction: ExecuteInstruction,
 		memo?: string,
 		fee?: "auto" | StdFee,
-		finality?: {confirmed: {timeoutMs?: number}}
-	): Promise<DeliverTxResponse>
+		finality?: { confirmed: { timeoutMs?: number } }
+	): Promise<DeliverTxResponse>;
 	executeContract(
 		instruction: ExecuteInstruction,
 		memo?: string,
 		fee?: "auto" | StdFee,
 		finality?: TransactionFinality
-	): Promise<DeliverTxResponse | string>
+	): Promise<DeliverTxResponse | string>;
 	executeContract(
 		instruction: ExecuteInstruction,
 		memo: string = "",
 		fee: "auto" | StdFee = "auto",
-		finality: TransactionFinality = {confirmed: {}}
+		finality: TransactionFinality = { confirmed: {} }
 	): Promise<DeliverTxResponse | string> {
 		return this.executeContractMulti([instruction], memo, fee, finality);
 	}
 
-	executeContractMulti(
-		instructions: ExecuteInstruction[]
-	): Promise<DeliverTxResponse>
-	executeContractMulti(
-		instructions: ExecuteInstruction[],
-		memo?: string
-	): Promise<DeliverTxResponse>
+	executeContractMulti(instructions: ExecuteInstruction[]): Promise<DeliverTxResponse>;
+	executeContractMulti(instructions: ExecuteInstruction[], memo?: string): Promise<DeliverTxResponse>;
 	executeContractMulti(
 		instructions: ExecuteInstruction[],
 		memo?: string,
-		fee?: "auto" | StdFee,
-	): Promise<DeliverTxResponse>
+		fee?: "auto" | StdFee
+	): Promise<DeliverTxResponse>;
 	executeContractMulti(
 		instructions: ExecuteInstruction[],
 		memo: string | undefined,
 		fee: "auto" | StdFee | undefined,
 		finality: "broadcasted"
-	): Promise<string>
+	): Promise<string>;
 	executeContractMulti(
 		instructions: ExecuteInstruction[],
 		memo?: string,
 		fee?: "auto" | StdFee,
-		finality?: {confirmed: {timeoutMs?: number}}
-	): Promise<DeliverTxResponse>
+		finality?: { confirmed: { timeoutMs?: number } }
+	): Promise<DeliverTxResponse>;
 	executeContractMulti(
 		instructions: ExecuteInstruction[],
 		memo?: string,
 		fee?: "auto" | StdFee,
 		finality?: TransactionFinality
-	): Promise<DeliverTxResponse | string>
+	): Promise<DeliverTxResponse | string>;
 	executeContractMulti(
 		instructions: ExecuteInstruction[],
 		memo: string = "",
 		fee: "auto" | StdFee = "auto",
-		finality: TransactionFinality = {confirmed: {}}
+		finality: TransactionFinality = { confirmed: {} }
 	): Promise<DeliverTxResponse | string> {
-		return this.signAndSend(
-			this.execIxsToCosmosMsgs(instructions),
-			memo,
-			fee,
-			finality
-		);
+		return this.signAndSend(this.execIxsToCosmosMsgs(instructions), memo, fee, finality);
 	}
 	/**
 	 * Simulates the transaction and provides actually useful information. Like the events emitted.
-	 * 
+	 *
 	 * Because cosmjs says: "Why would anyone want any information other than estimated gas from a simulation?"
 	 */
 	async simulateTransaction(messages: readonly EncodeObject[]): Promise<SimulateResponse> {
@@ -504,50 +482,46 @@ export class ClientEnv {
 			undefined,
 			encodeSecp256k1Pubkey(this.account.pubkey),
 			sequence
-		)
+		);
 	}
 	/**
 	 * convenience function for simulating transactions containing cosmwasm messages
-	 * 
+	 *
 	 * @param instructions cosmwasm instructions to execute
 	 * @returns the simulation result
 	 */
-	async simulateContractMulti(
-		instructions: ExecuteInstruction[]
-	): Promise<SimulateResponse> {
+	async simulateContractMulti(instructions: ExecuteInstruction[]): Promise<SimulateResponse> {
 		return this.simulateTransaction(this.execIxsToCosmosMsgs(instructions));
 	}
 	/**
 	 * convenience function for simulating transactions containing a single cosmwasm message
-	 * 
+	 *
 	 * @param instruction cosmwasm instructions to execute
 	 * @returns the simulation result
 	 */
-	async simulateContract(
-		instruction: ExecuteInstruction
-	): Promise<SimulateResponse> {
+	async simulateContract(instruction: ExecuteInstruction): Promise<SimulateResponse> {
 		if (!this.isSignable()) {
 			throw new Error("Cannot simulate transactions - " + this.readonlyReason);
 		}
 		return this.simulateContractMulti([instruction]);
-	  }
+	}
 	async queryContract(contractAddress: string, query: object): Promise<any> {
-		return await this.wasmClient.queryContractSmart(contractAddress, query)
+		return await this.wasmClient.queryContractSmart(contractAddress, query);
 	}
 	async getBalance(unifiedDenom: string, accountAddress: string = this.getAccount().address): Promise<bigint> {
 		if (unifiedDenom.startsWith("cw20/")) {
 			// TODO: Add return types for cw20
-			const {balance} = await this.queryContract(
+			const { balance } = await this.queryContract(
 				unifiedDenom.substring("cw20/".length),
 				{
-					balance: {address: accountAddress}
-				}/* satisfies Cw20QueryMsg */
-			) /* as Cw20BalanceResponse*/;
+					balance: { address: accountAddress },
+				} /* satisfies Cw20QueryMsg */
+			); /* as Cw20BalanceResponse*/
 			return BigInt(balance);
-		}else{
+		} else {
 			const result = await this.queryClient.cosmos.bank.v1beta1.balance({
 				address: accountAddress,
-				denom: unifiedDenom
+				denom: unifiedDenom,
 			});
 			return BigInt(result.balance!.amount);
 		}
@@ -563,28 +537,28 @@ export class ClientEnv {
 			}
 			return {
 				typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-					value: MsgExecuteContract.fromPartial({
+				value: MsgExecuteContract.fromPartial({
 					sender: this.account.address,
 					contract: i.contractAddress,
 					msg: i.msg instanceof Uint8Array ? i.msg : Buffer.from(JSON.stringify(i.msg)),
 					funds: [...(i.funds || [])],
 				}),
-			}
+			};
 		});
 	}
 	async getSupplyOf(unifiedDenom: string): Promise<bigint> {
 		if (unifiedDenom.startsWith("cw20/")) {
 			// TODO: Add return types for cw20
-			const {total_supply} = await this.queryContract(
+			const { total_supply } = await this.queryContract(
 				unifiedDenom.substring("cw20/".length),
 				{
-					token_info: {}
-				}/* satisfies Cw20QueryMsg */
-			) /* as Cw20TokenInfoResponse*/;
+					token_info: {},
+				} /* satisfies Cw20QueryMsg */
+			); /* as Cw20TokenInfoResponse*/
 			return BigInt(total_supply);
-		}else{
+		} else {
 			const result = await this.queryClient.cosmos.bank.v1beta1.supplyOf({
-				denom: unifiedDenom
+				denom: unifiedDenom,
 			});
 			return BigInt(result.amount!.amount);
 		}
@@ -602,17 +576,19 @@ export class ContractDeployingClientEnv extends ClientEnv {
 			wasmCode,
 			calculateFee(ContractDeployingClientEnv.gasLimit, this.wasmClient["gasPrice"]),
 			undefined,
-			allowFactories ? {
-				"address": "",
-				"addresses": [],
-				"permission": 3 // ACCESS_TYPE_EVERYBODY
-			} : {
-				// This property is apparently deprecrated but Sei can't understand anything else anyway
-				"address": this.account.address,
-				"addresses": [],
-				"permission": 2 // ACCESS_TYPE_ONLY_ADDRESS
-			}
-		)
+			allowFactories
+				? {
+						address: "",
+						addresses: [],
+						permission: 3, // ACCESS_TYPE_EVERYBODY
+					}
+				: {
+						// This property is apparently deprecrated but Sei can't understand anything else anyway
+						address: this.account.address,
+						addresses: [],
+						permission: 2, // ACCESS_TYPE_ONLY_ADDRESS
+					}
+		);
 		return result;
 	}
 	async instantiateContract(
@@ -636,9 +612,9 @@ export class ContractDeployingClientEnv extends ClientEnv {
 			calculateFee(ContractDeployingClientEnv.gasLimit, this.wasmClient["gasPrice"]),
 			{
 				funds,
-				admin: upgradeAdmin || undefined
+				admin: upgradeAdmin || undefined,
 			}
-		)
+		);
 		return result;
 	}
 	async deployContract(
@@ -649,14 +625,10 @@ export class ContractDeployingClientEnv extends ClientEnv {
 		funds?: Coin[],
 		upgradeAdmin: Addr | null = null
 	): Promise<InstantiateResult> {
-		const {codeId} = await this.uploadContract(wasmCode, allowFactories);
+		const { codeId } = await this.uploadContract(wasmCode, allowFactories);
 		return this.instantiateContract(codeId, instantiateMsg, label, funds, upgradeAdmin);
 	}
-	async migrateContract(
-		contract: Addr,
-		newCodeId: number,
-		migrateMsg: object
-	): Promise<MigrateResult> {
+	async migrateContract(contract: Addr, newCodeId: number, migrateMsg: object): Promise<MigrateResult> {
 		if (!this.isSignable()) {
 			throw new Error("Cannot execute transactions - " + this.readonlyReason);
 		}
@@ -675,11 +647,7 @@ export class ContractDeployingClientEnv extends ClientEnv {
 		allowFactories: boolean,
 		migrateMsg: object
 	): Promise<MigrateResult> {
-		const {codeId} = await this.uploadContract(wasmCode, allowFactories);
-		return this.migrateContract(
-			contract,
-			codeId,
-			migrateMsg
-		);
+		const { codeId } = await this.uploadContract(wasmCode, allowFactories);
+		return this.migrateContract(contract, codeId, migrateMsg);
 	}
 }

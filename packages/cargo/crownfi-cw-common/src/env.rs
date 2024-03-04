@@ -1,6 +1,6 @@
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc};
 
-use cosmwasm_std::{Env, Deps, DepsMut, Storage, Api, CustomQuery, Empty, QuerierWrapper};
+use cosmwasm_std::{Api, CustomQuery, Deps, DepsMut, Empty, Env, QuerierWrapper, Storage};
 
 // common immutable-storage trait?
 #[derive(Clone)]
@@ -8,7 +8,7 @@ pub struct ClonableEnvInfo<'exec, Q: CustomQuery = Empty> {
 	pub storage: Rc<&'exec dyn Storage>,
 	pub api: Rc<&'exec dyn Api>,
 	pub querier: Rc<QuerierWrapper<'exec, Q>>,
-	pub env: Rc<Env>
+	pub env: Rc<Env>,
 }
 impl<'exec, Q: CustomQuery> ClonableEnvInfo<'exec, Q> {
 	pub fn new(deps: Deps<'exec, Q>, env: Env) -> Self {
@@ -16,7 +16,7 @@ impl<'exec, Q: CustomQuery> ClonableEnvInfo<'exec, Q> {
 			storage: Rc::new(deps.storage),
 			api: Rc::new(deps.api),
 			querier: Rc::new(deps.querier),
-			env: Rc::new(env)
+			env: Rc::new(env),
 		}
 	}
 }
@@ -27,7 +27,7 @@ pub struct ClonableEnvInfoMut<'exec, Q: CustomQuery = Empty> {
 	pub storage: Rc<RefCell<&'exec mut dyn Storage>>,
 	pub api: Rc<&'exec dyn Api>,
 	pub querier: Rc<QuerierWrapper<'exec, Q>>,
-	pub env: Rc<Env>
+	pub env: Rc<Env>,
 }
 
 impl<'exec, Q: CustomQuery> ClonableEnvInfoMut<'exec, Q> {
@@ -36,7 +36,7 @@ impl<'exec, Q: CustomQuery> ClonableEnvInfoMut<'exec, Q> {
 			storage: Rc::new(RefCell::new(deps.storage)),
 			api: Rc::new(deps.api),
 			querier: Rc::new(deps.querier),
-			env: Rc::new(env)
+			env: Rc::new(env),
 		}
 	}
 }

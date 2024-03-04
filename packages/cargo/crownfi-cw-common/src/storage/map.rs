@@ -1,12 +1,15 @@
-use std::marker::PhantomData;
 use cosmwasm_std::StdResult;
+use std::marker::PhantomData;
 
-use super::{concat_byte_array_pairs, item::AutosavingSerializableItem, lexicographic_next, MaybeMutableStorage, SerializableItem};
+use super::{
+	concat_byte_array_pairs, item::AutosavingSerializableItem, lexicographic_next, MaybeMutableStorage,
+	SerializableItem,
+};
 pub struct StoredMap<'exec, K: SerializableItem, V: SerializableItem> {
 	namespace: &'static [u8],
 	storage: MaybeMutableStorage<'exec>,
 	key_type: PhantomData<K>,
-	value_type: PhantomData<V>
+	value_type: PhantomData<V>,
 }
 
 impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
@@ -15,21 +18,18 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 			namespace,
 			storage,
 			key_type: PhantomData,
-			value_type: PhantomData
+			value_type: PhantomData,
 		}
 	}
 
 	#[inline]
 	pub fn key(&self, key: &K) -> Vec<u8> {
 		if let Some(key_bytes) = key.serialize_as_ref() {
+			concat_byte_array_pairs(self.namespace, key_bytes)
+		} else {
 			concat_byte_array_pairs(
 				self.namespace,
-				key_bytes
-			)
-		}else{
-			concat_byte_array_pairs(
-				self.namespace,
-				&key.serialize_to_owned().expect("key serialization should never fail")
+				&key.serialize_to_owned().expect("key serialization should never fail"),
 			)
 		}
 	}
@@ -48,27 +48,29 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 		let Some(data) = self.get_raw_bytes(key) else {
 			return Ok(None);
 		};
-		Ok(
-			Some(
-				V::deserialize(&data)?
-			)
-		)
+		Ok(Some(V::deserialize(&data)?))
 	}
 
 	pub fn get_autosaving(&self, key: &K) -> StdResult<Option<AutosavingSerializableItem<'exec, V>>> {
 		AutosavingSerializableItem::new(
-			&self.storage.get_mutable_shared().expect("get_autosaving should only be used in a mutable context"),
-			self.key(key)
+			&self
+				.storage
+				.get_mutable_shared()
+				.expect("get_autosaving should only be used in a mutable context"),
+			self.key(key),
 		)
 	}
 
-	pub fn get_or_default_autosaving(
-		&self,
-		key: &K
-	) -> StdResult<AutosavingSerializableItem<'exec, V>> where V: Default {
+	pub fn get_or_default_autosaving(&self, key: &K) -> StdResult<AutosavingSerializableItem<'exec, V>>
+	where
+		V: Default,
+	{
 		AutosavingSerializableItem::new_or_default(
-			&self.storage.get_mutable_shared().expect("get_autosaving should only be used in a mutable context"),
-			self.key(key)
+			&self
+				.storage
+				.get_mutable_shared()
+				.expect("get_autosaving should only be used in a mutable context"),
+			self.key(key),
 		)
 	}
 
@@ -80,11 +82,12 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 		let storage = &self.storage;
 		if let Some(bytes) = value.serialize_as_ref() {
 			storage.set(&self.key(key), bytes);
-		}else{
+		} else {
 			storage.set(
 				&self.key(key),
-				&value.serialize_to_owned()
-					.expect("autosave serialize should never fail")
+				&value
+					.serialize_to_owned()
+					.expect("autosave serialize should never fail"),
 			)
 		}
 		Ok(())
@@ -93,42 +96,29 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<'exec, K, V> {
 	pub fn remove(&self, key: &K) {
 		self.storage.remove(&self.key(key))
 	}
-	
+
 	/// Returns an iterator which iterates over all key/value pairs of the map
-	/// 
+	///
 	/// By default it iterates in an ascending order. Though is a double-ended iterator, so you can use the `.rev()`
 	/// method to switch to descending order.
 	pub fn iter(&self) -> StdResult<StoredMapIter<'exec, K, V>> {
-		StoredMapIter::new(
-			self.storage.clone(),
-			self.namespace,
-			(),
-			None,
-			None
-		)
+		StoredMapIter::new(self.storage.clone(), self.namespace, (), None, None)
 	}
 
 	/// Returns an iterator over a range of keys.
-	/// 
+	///
 	/// You can use `after` to skip items while in ascending order. Or `before` along with the `.rev()` method to skip
 	/// items while iterating in a descending order.
 	pub fn iter_range(&self, after: Option<K>, before: Option<K>) -> StdResult<StoredMapIter<'exec, K, V>> {
-		StoredMapIter::new(
-			self.storage.clone(),
-			self.namespace,
-			(),
-			after,
-			before
-		)
+		StoredMapIter::new(self.storage.clone(), self.namespace, (), after, before)
 	}
 }
 
-
 /// Allows you to iterate over a stored map.
-/// 
+///
 /// If your key type for your stored map is a tuple, i.e. `(T1, T2, T3)`, you can set `K` to `(T2, T3)` while providing
 /// `T1` as the `partial_key` in the `new()` function.
-/// 
+///
 /// If you don't care about the keys or values and don't want to parse them, set it to the unit type `()`.
 pub struct StoredMapIter<'a, K: SerializableItem, V: SerializableItem> {
 	storage: MaybeMutableStorage<'a>,
@@ -136,7 +126,7 @@ pub struct StoredMapIter<'a, K: SerializableItem, V: SerializableItem> {
 	last_backward_key: Vec<u8>,
 	key_type: PhantomData<K>,
 	value_type: PhantomData<V>,
-	key_slicing: usize
+	key_slicing: usize,
 }
 
 impl<'a, K: SerializableItem, V: SerializableItem> StoredMapIter<'a, K, V> {
@@ -147,58 +137,49 @@ impl<'a, K: SerializableItem, V: SerializableItem> StoredMapIter<'a, K, V> {
 		key_prefix: P,
 		start_key: Option<K>,
 		end_key: Option<K>,
-	) -> StdResult<Self> where P: SerializableItem  {
+	) -> StdResult<Self>
+	where
+		P: SerializableItem,
+	{
 		let prefix_bytes = key_prefix.serialize_to_owned()?;
 		let start_bytes = start_key.map_or(Ok(Vec::new()), |k| {
-			k.serialize_to_owned().map(|maybe_vec| {maybe_vec.into()})
+			k.serialize_to_owned().map(|maybe_vec| maybe_vec.into())
 		})?;
 		let end_bytes = end_key.map_or(Ok(Vec::new()), |k| {
-			k.serialize_to_owned().map(|maybe_vec| {maybe_vec.into()})
+			k.serialize_to_owned().map(|maybe_vec| maybe_vec.into())
 		})?;
 
-		let mut start_key = Vec::with_capacity(
-			namespace.len() +
-			prefix_bytes.len() +
-			start_bytes.len()
-		);
+		let mut start_key = Vec::with_capacity(namespace.len() + prefix_bytes.len() + start_bytes.len());
 		start_key.extend_from_slice(namespace);
 		start_key.extend_from_slice(prefix_bytes.as_ref());
 		start_key.extend_from_slice(start_bytes.as_ref());
 
 		let end_key = if end_bytes.len() == 0 {
-			lexicographic_next(
-				&concat_byte_array_pairs(&namespace, &prefix_bytes)
-			)
-		}else{
-			let mut end_key = Vec::with_capacity(
-				namespace.len() +
-				prefix_bytes.len() +
-				end_bytes.len()
-			);
+			lexicographic_next(&concat_byte_array_pairs(&namespace, &prefix_bytes))
+		} else {
+			let mut end_key = Vec::with_capacity(namespace.len() + prefix_bytes.len() + end_bytes.len());
 			end_key.extend_from_slice(namespace);
 			end_key.extend_from_slice(prefix_bytes.as_ref());
 			end_key.extend_from_slice(end_bytes.as_ref());
 			end_key
 		};
-		Ok(
-			Self {
-				storage,
-				last_forward_key: start_key,
-				last_backward_key: end_key,
-				key_type: PhantomData,
-				value_type: PhantomData,
-				key_slicing: namespace.len() + prefix_bytes.len()
-			}
-		)
+		Ok(Self {
+			storage,
+			last_forward_key: start_key,
+			last_backward_key: end_key,
+			key_type: PhantomData,
+			value_type: PhantomData,
+			key_slicing: namespace.len() + prefix_bytes.len(),
+		})
 	}
 }
 impl<'a, K: SerializableItem, V: SerializableItem> Iterator for StoredMapIter<'a, K, V> {
 	type Item = (K, V);
 	fn next(&mut self) -> Option<Self::Item> {
-		let Some((key_bytes, value_bytes)) = self.storage.next_record(
-			&self.last_forward_key,
-			Some(&self.last_backward_key)
-		) else {
+		let Some((key_bytes, value_bytes)) = self
+			.storage
+			.next_record(&self.last_forward_key, Some(&self.last_backward_key))
+		else {
 			return None;
 		};
 		if key_bytes >= self.last_backward_key {
@@ -206,18 +187,15 @@ impl<'a, K: SerializableItem, V: SerializableItem> Iterator for StoredMapIter<'a
 		}
 		let deserialized_key = K::deserialize(&key_bytes[self.key_slicing..]).ok()?;
 		self.last_forward_key = key_bytes;
-		Some((
-			deserialized_key,
-			V::deserialize(&value_bytes).ok()?
-		))
+		Some((deserialized_key, V::deserialize(&value_bytes).ok()?))
 	}
 }
 impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for StoredMapIter<'a, K, V> {
 	fn next_back(&mut self) -> Option<Self::Item> {
-		let Some((key_bytes, value_bytes)) = self.storage.prev_record(
-			&self.last_backward_key,
-			Some(&self.last_forward_key)
-		) else {
+		let Some((key_bytes, value_bytes)) = self
+			.storage
+			.prev_record(&self.last_backward_key, Some(&self.last_forward_key))
+		else {
 			return None;
 		};
 		if key_bytes <= self.last_forward_key {
@@ -225,35 +203,32 @@ impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for Store
 		}
 		let deserialized_key = K::deserialize(&key_bytes[self.key_slicing..]).ok()?;
 		self.last_backward_key = key_bytes;
-		Some((
-			deserialized_key,
-			V::deserialize(&value_bytes).ok()?
-		))
+		Some((deserialized_key, V::deserialize(&value_bytes).ok()?))
 	}
 }
 
-
 #[cfg(test)]
 mod tests {
-	use std::{cell::RefCell, rc::Rc};
-	use crate::env::ClonableEnvInfoMut;
 	use super::*;
+	use crate::env::ClonableEnvInfoMut;
 	use cosmwasm_std::{Addr, Coin, Uint128};
 	use cw_multi_test::{App, ContractWrapper, Executor};
+	use std::{cell::RefCell, rc::Rc};
 
 	fn init_test_app(owner: &Addr) -> App {
 		App::new(|router, _, storage| {
 			// initialization moved to App construction
-			router.bank.init_balance(
-				storage,
-				owner,
-				vec![
-					Coin {
+			router
+				.bank
+				.init_balance(
+					storage,
+					owner,
+					vec![Coin {
 						denom: "usei".into(),
 						amount: Uint128::new(100_000_000_000u128),
-					}
-				],
-			).unwrap()
+					}],
+				)
+				.unwrap()
 		})
 	}
 	#[test]

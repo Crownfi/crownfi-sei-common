@@ -1,12 +1,15 @@
-use std::{rc::Rc, cell::{RefCell, Ref}};
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::Pod;
 use cosmwasm_std::{StdError, Storage};
+use std::{
+	cell::{Ref, RefCell},
+	rc::Rc,
+};
 
 pub mod item;
 pub mod map;
-pub mod vec;
 pub mod queue;
+pub mod vec;
 
 pub fn concat_byte_array_pairs(a: &[u8], b: &[u8]) -> Vec<u8> {
 	let mut result = Vec::with_capacity(a.len() + b.len());
@@ -18,7 +21,9 @@ pub fn concat_byte_array_pairs(a: &[u8], b: &[u8]) -> Vec<u8> {
 pub trait SerializableItem {
 	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError>;
 	fn serialize_as_ref(&self) -> Option<&[u8]>;
-	fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized;
+	fn deserialize(data: &[u8]) -> Result<Self, StdError>
+	where
+		Self: Sized;
 }
 
 #[macro_export]
@@ -34,16 +39,18 @@ macro_rules! impl_serializable_as_ref {
 				// ditto use of black_box as above
 				Some(bytemuck::bytes_of(std::hint::black_box(self)))
 			}
-			
-			fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
+
+			fn deserialize(data: &[u8]) -> Result<Self, StdError>
+			where
+				Self: Sized,
+			{
 				// If we're gonna clone anyway might as well use read_unaligned
 				// I don't trust the storage api to give me bytes which don't align to 8 bytes anyway
-				bytemuck::try_pod_read_unaligned(std::hint::black_box(data)).map_err(|err| {
-					StdError::parse_err(stringify!($data_type), err)
-				})
+				bytemuck::try_pod_read_unaligned(std::hint::black_box(data))
+					.map_err(|err| StdError::parse_err(stringify!($data_type), err))
 			}
 		}
-	}
+	};
 }
 
 #[macro_export]
@@ -57,11 +64,11 @@ macro_rules! impl_serializable_borsh {
 				})?;
 				Ok(result)
 			}
-			
+
 			fn serialize_as_ref(&self) -> Option<&[u8]> {
 				None
 			}
-			
+
 			fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
 				Self::try_from_slice(data).map_err(|err| {
 					StdError::parse_err(stringify!($data_type), err)
@@ -78,11 +85,11 @@ macro_rules! impl_serializable_borsh {
 				})?;
 				Ok(result)
 			}
-			
+
 			fn serialize_as_ref(&self) -> Option<&[u8]> {
 				None
 			}
-			
+
 			fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
 				Self::try_from_slice(data).map_err(|err| {
 					StdError::parse_err(stringify!($data_type), err)
@@ -91,7 +98,6 @@ macro_rules! impl_serializable_borsh {
 		}
 	}
 }
-
 
 impl_serializable_as_ref!(u8);
 impl_serializable_as_ref!(i8);
@@ -119,17 +125,204 @@ impl_serializable_borsh!((T0, T1, T2, T3, T4, T5), T0, T1, T2, T3, T4, T5);
 impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6), T0, T1, T2, T3, T4, T5, T6);
 impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7), T0, T1, T2, T3, T4, T5, T6, T7);
 impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8), T0, T1, T2, T3, T4, T5, T6, T7, T8);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18);
-impl_serializable_borsh!((T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19), T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9
+);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10
+);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11
+);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12
+);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12,
+	T13
+);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12,
+	T13,
+	T14
+);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12,
+	T13,
+	T14,
+	T15
+);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12,
+	T13,
+	T14,
+	T15,
+	T16
+);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12,
+	T13,
+	T14,
+	T15,
+	T16,
+	T17
+);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12,
+	T13,
+	T14,
+	T15,
+	T16,
+	T17,
+	T18
+);
+impl_serializable_borsh!(
+	(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19),
+	T0,
+	T1,
+	T2,
+	T3,
+	T4,
+	T5,
+	T6,
+	T7,
+	T8,
+	T9,
+	T10,
+	T11,
+	T12,
+	T13,
+	T14,
+	T15,
+	T16,
+	T17,
+	T18,
+	T19
+);
 
 impl SerializableItem for () {
 	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
@@ -138,28 +331,35 @@ impl SerializableItem for () {
 	fn serialize_as_ref(&self) -> Option<&[u8]> {
 		Some(b"")
 	}
-	fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
+	fn deserialize(data: &[u8]) -> Result<Self, StdError>
+	where
+		Self: Sized,
+	{
 		if data.len() != 0 {
 			return Err(StdError::parse_err("()", "data was not empty"));
 		}
 		Ok(())
 	}
 }
-impl<T, const N: usize> SerializableItem for [T; N] where T: Pod {
-    fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
+impl<T, const N: usize> SerializableItem for [T; N]
+where
+	T: Pod,
+{
+	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
 		Ok(bytemuck::bytes_of(self).into())
 	}
 
 	fn serialize_as_ref(&self) -> Option<&[u8]> {
 		Some(bytemuck::bytes_of(self))
 	}
-	
-	fn deserialize(data: &[u8]) -> Result<Self, StdError> where Self: Sized {
+
+	fn deserialize(data: &[u8]) -> Result<Self, StdError>
+	where
+		Self: Sized,
+	{
 		// If we're gonna clone anyway might as well use read_unaligned
 		// I don't trust the storage api to give me bytes which don't align to 8 bytes anyway
-		bytemuck::try_pod_read_unaligned(data).map_err(|err| {
-			StdError::parse_err("[T; N]", err)
-		})
+		bytemuck::try_pod_read_unaligned(data).map_err(|err| StdError::parse_err("[T; N]", err))
 	}
 }
 
@@ -184,7 +384,7 @@ pub(crate) fn lexicographic_next(bytes: &[u8]) -> Vec<u8> {
 #[derive(Clone)]
 pub enum MaybeMutableStorage<'exec> {
 	Immutable(&'exec dyn Storage),
-	MutableShared(Rc<RefCell<&'exec mut dyn Storage>>)
+	MutableShared(Rc<RefCell<&'exec mut dyn Storage>>),
 }
 impl<'exec> MaybeMutableStorage<'exec> {
 	pub fn new_immutable(storage: &'exec dyn Storage) -> Self {
@@ -225,7 +425,7 @@ impl<'exec> MaybeMutableStorage<'exec> {
 		match self {
 			MaybeMutableStorage::Immutable(_) => {
 				panic!("MaybeMutableStorage.set called on immutable storage")
-			},
+			}
 			MaybeMutableStorage::MutableShared(storage) => storage.borrow_mut().set(key, value),
 		}
 	}
@@ -238,7 +438,7 @@ impl<'exec> MaybeMutableStorage<'exec> {
 		match self {
 			MaybeMutableStorage::Immutable(_) => {
 				panic!("MaybeMutableStorage.remove called on immutable storage")
-			},
+			}
 			MaybeMutableStorage::MutableShared(storage) => storage.borrow_mut().remove(key),
 		}
 	}
@@ -252,25 +452,26 @@ impl<'exec> MaybeMutableStorage<'exec> {
 		match self {
 			MaybeMutableStorage::Immutable(storage) => {
 				// I have no idea why this behaviour isn't just already exposed.
-				storage.range(
-					Some(&next_key),
-					before,
-					// It seems like this only exists because the cosmos team didn't know `DoubleEndedIterator` existed
-					cosmwasm_std::Order::Ascending
-				).next()
-			},
+				storage
+					.range(
+						Some(&next_key),
+						before,
+						// It seems like this only exists because the cosmos team didn't know `DoubleEndedIterator` existed
+						cosmwasm_std::Order::Ascending,
+					)
+					.next()
+			}
 			MaybeMutableStorage::MutableShared(storage) => {
 				// Implementing iterators on top of this is far from ideal, but the core issue is that unlike solana,
 				// where I'm given a byte array which I can parition however I want, I have to juggle around a single
 				// mutable reference. Which means there's a lot more BS to go through in order to, for example,
 				// immutabily iterate over one mapping while mutabily iterating over another.
 				// I miss being able to RefMut::map_split(account_info.data.borrow_mut(), ...)
-				storage.borrow().range(
-					Some(&next_key),
-					before,
-					cosmwasm_std::Order::Ascending
-				).next()
-			},
+				storage
+					.borrow()
+					.range(Some(&next_key), before, cosmwasm_std::Order::Ascending)
+					.next()
+			}
 		}
 	}
 
@@ -280,24 +481,17 @@ impl<'exec> MaybeMutableStorage<'exec> {
 		// ditto statements as above
 		match self {
 			MaybeMutableStorage::Immutable(storage) => {
-				storage.range(
-					after,
-					Some(key),
-					cosmwasm_std::Order::Descending
-				).next()
-			},
-			MaybeMutableStorage::MutableShared(storage) => {
-				storage.borrow().range(
-					after,
-					Some(key),
-					cosmwasm_std::Order::Descending
-				).next()
-			},
+				storage.range(after, Some(key), cosmwasm_std::Order::Descending).next()
+			}
+			MaybeMutableStorage::MutableShared(storage) => storage
+				.borrow()
+				.range(after, Some(key), cosmwasm_std::Order::Descending)
+				.next(),
 		}
 	}
 }
 
 pub enum MaybeMutableStorageRef<'a> {
 	Immutable(&'a dyn Storage),
-	MutableShared(Ref<'a, &'a mut dyn Storage>)
+	MutableShared(Ref<'a, &'a mut dyn Storage>),
 }

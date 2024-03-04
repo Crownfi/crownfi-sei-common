@@ -12,28 +12,29 @@ export function isProbablyTxError(e: any): boolean {
  * `messageIndex` is which message in the transaction threw the error
  * `errorSource` is the type of error
  * `errorDetail` is the error message
- * @param message 
+ * @param message
  * @returns data described above
  */
 export function makeTxExecErrLessFugly(
 	message: string
-): {messageIndex: string, errorSource: string, errorDetail: string} | null {
-	let betterErrorFormat = /failed to execute message; message index\:\s*?(\d+)\:\s+?(?:dispatch: submessages: )*(.*)\:\s+?(.*?)\s*?\[/.exec(
-		message
-	);
+): { messageIndex: string; errorSource: string; errorDetail: string } | null {
+	let betterErrorFormat =
+		/failed to execute message; message index\:\s*?(\d+)\:\s+?(?:dispatch: submessages: )*(.*)\:\s+?(.*?)\s*?\[/.exec(
+			message
+		);
 	if (betterErrorFormat) {
 		const messageIndex = betterErrorFormat[1];
 		let errorSource = betterErrorFormat[3];
 		if (errorSource == "execute wasm contract failed") {
-			errorSource = "Contract returned an error"
+			errorSource = "Contract returned an error";
 		}
 		const errorDetail = betterErrorFormat[2];
 		return {
 			messageIndex,
 			errorSource,
-			errorDetail
+			errorDetail,
 		};
 	} else {
-		return null
+		return null;
 	}
 }

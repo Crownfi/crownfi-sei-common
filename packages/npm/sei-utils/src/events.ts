@@ -1,5 +1,5 @@
 import { TinyEmitter } from "tiny-emitter";
-import { DeliverTxResponse } from "@cosmjs/cosmwasm-stargate"
+import { DeliverTxResponse } from "@cosmjs/cosmwasm-stargate";
 import { Addr } from "./common_sei_types.js";
 import { SeiChainId, SeiChainNetConfig } from "./chain_config.js";
 import { MaybeSelectedProviderString } from "./client_env.js";
@@ -17,25 +17,25 @@ export interface TypedTinyEmitter<T extends any = any> extends Omit<TinyEmitter,
 interface SeiUtilEvents {
 	/** This event is emitted when a `ClientEnv` sends a transaction  */
 	transactionBroadcasted: (ev: {
-		chainId: SeiChainId,
-		sender: Addr,
-		transactionHash: string,
+		chainId: SeiChainId;
+		sender: Addr;
+		transactionHash: string;
 		/** If this is false, then `transactionTimeout` and `transactionConfirmed` events will NOT be emitted */
-		awaiting: boolean
-	}) => void
-	transactionTimeout: (ev: {chainId: SeiChainId, sender: Addr, transactionHash: string}) => void
-	transactionConfirmed: (ev: {chainId: SeiChainId, sender: Addr, result: DeliverTxResponse}) => void
-	defaultNetworkChanged: (ev: SeiChainNetConfig) => void
+		awaiting: boolean;
+	}) => void;
+	transactionTimeout: (ev: { chainId: SeiChainId; sender: Addr; transactionHash: string }) => void;
+	transactionConfirmed: (ev: { chainId: SeiChainId; sender: Addr; result: DeliverTxResponse }) => void;
+	defaultNetworkChanged: (ev: SeiChainNetConfig) => void;
 	defaultProviderChangeRequest: (ev: {
-		provider: MaybeSelectedProviderString,
-		status: "requesting" | "failure" | "success",
-		failureException?: any
-	}) => void
+		provider: MaybeSelectedProviderString;
+		status: "requesting" | "failure" | "success";
+		failureException?: any;
+	}) => void;
 	defaultProviderChanged: (ev: {
-		chainId: SeiChainId,
-		account: AccountData | null,
-		provider: MaybeSelectedProviderString
-	}) => void
+		chainId: SeiChainId;
+		account: AccountData | null;
+		provider: MaybeSelectedProviderString;
+	}) => void;
 }
 
 export const seiUtilEventEmitter = new TinyEmitter() as TypedTinyEmitter<SeiUtilEvents>;

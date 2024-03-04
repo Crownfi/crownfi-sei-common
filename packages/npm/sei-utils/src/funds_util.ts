@@ -7,64 +7,66 @@ import { SeiChainId, getDefaultNetworkConfig } from "./chain_config.js";
 export function nativeDenomSortCompare(a: Coin, b: Coin) {
 	if (a.denom < b.denom) {
 		return -1;
-	}else if(a.denom > b.denom){
+	} else if (a.denom > b.denom) {
 		return 1;
 	}
 	return 0;
 }
 
 // Temporary hard-coded info until our API is up and running
-const userTokenInfo: {[denom: string]: UserTokenInfo} = {
-	"usei": {
-		"name": "Sei",
-		"symbol": "SEI",
-		"decimals": 6,
-		"icon": "https://app.crownfi.io/assets/coins/sei.svg"
+const userTokenInfo: { [denom: string]: UserTokenInfo } = {
+	usei: {
+		name: "Sei",
+		symbol: "SEI",
+		decimals: 6,
+		icon: "https://app.crownfi.io/assets/coins/sei.svg",
 	},
-	"uusdc": {
-		"name": "USD Coin",
-		"symbol": "USDC",
-		"decimals": 6,
-		"icon": "https://app.crownfi.io/assets/coins/usdc.svg"
+	uusdc: {
+		name: "USD Coin",
+		symbol: "USDC",
+		decimals: 6,
+		icon: "https://app.crownfi.io/assets/coins/usdc.svg",
 	},
 	"factory/sei1ug2zf426lyucgwr7nuneqr0cymc0fxx2qjkhd8/test-ln4z7ryp": {
-		"name": "CrownFi Native Test Token 1",
-		"symbol": "TESTN1",
-		"decimals": 6,
-		"icon": "https://app.crownfi.io/assets/placeholder.svg"
+		name: "CrownFi Native Test Token 1",
+		symbol: "TESTN1",
+		decimals: 6,
+		icon: "https://app.crownfi.io/assets/placeholder.svg",
 	},
 	"cw20/sei17k6s089jcg3d02ny2h3a3z675307a9j8dvrslsrku6rkawe5q73q9sygav": {
-		"name": "CrownFi CW20 Test Token 1",
-		"symbol": "TESTC1",
-		"decimals": 6,
-		"icon": "https://app.crownfi.io/assets/placeholder.svg"
-	}
-}
+		name: "CrownFi CW20 Test Token 1",
+		symbol: "TESTC1",
+		decimals: 6,
+		icon: "https://app.crownfi.io/assets/placeholder.svg",
+	},
+};
 
 export type UserTokenInfo = {
-	name: string,
-	symbol: string,
-	decimals: number,
-	icon: string
-}
+	name: string;
+	symbol: string;
+	decimals: number;
+	icon: string;
+};
 
 /**
  * Returns the user token info for the given denom. If there is none, fake data is returned.
  */
 export function getUserTokenInfo(unifiedDenom: string): UserTokenInfo {
-	return userTokenInfo[unifiedDenom] ?? {
-		name: "Unknown token (" + unifiedDenom + ")",
-		symbol: "(" + unifiedDenom + ")",
-		decimals: 0,
-		icon: "https://app.crownfi.io/assets/placeholder.svg"
-	}
+	return (
+		userTokenInfo[unifiedDenom] ?? {
+			name: "Unknown token (" + unifiedDenom + ")",
+			symbol: "(" + unifiedDenom + ")",
+			decimals: 0,
+			icon: "https://app.crownfi.io/assets/placeholder.svg",
+		}
+	);
 }
 
 /**
  * Updates the data returned by getUserTokenInfo
  * @param network The sei network to use, defaults to `getDefaultNetworkConfig().chainId`
  * @param apiEndpoint API Endpoint to get the coin data from, defaults to crownfi
- * @returns 
+ * @returns
  */
 export function updateUserTokenInfo(
 	network: SeiChainId = getDefaultNetworkConfig().chainId,
@@ -91,20 +93,27 @@ export function bigIntAbs(val: bigint): bigint {
  * @param trimTrailingZeros If true, the result won't have trailing zeros. e.g. "0.100000" becomes "0.1"
  * @returns The result represented as a string
  */
-export function bigIntToStringDecimal(rawAmount: bigint | number, decimals: number, trimTrailingZeros: boolean = false): string {
+export function bigIntToStringDecimal(
+	rawAmount: bigint | number,
+	decimals: number,
+	trimTrailingZeros: boolean = false
+): string {
 	let result: string;
 	if (typeof rawAmount === "number") {
 		if (decimals == 0) {
 			return Math.floor(rawAmount).toString();
 		}
 		// Can't use .toString() as that switches to scientific notations with values smaller than 0.000001
-		result = (rawAmount / (10 ** decimals)).toFixed(decimals)
-	}else{
+		result = (rawAmount / 10 ** decimals).toFixed(decimals);
+	} else {
 		if (decimals == 0) {
 			return rawAmount.toString();
 		}
-		const divisor = 10n ** BigInt(Math.trunc(decimals))
-		result = (rawAmount / divisor).toString() + "." +  (bigIntAbs(rawAmount) % divisor).toString().padStart(decimals, "0");
+		const divisor = 10n ** BigInt(Math.trunc(decimals));
+		result =
+			(rawAmount / divisor).toString() +
+			"." +
+			(bigIntAbs(rawAmount) % divisor).toString().padStart(decimals, "0");
 	}
 	if (trimTrailingZeros) {
 		return result.replace(/\.(\d*?)0+$/, (_, g1) => {
@@ -112,7 +121,7 @@ export function bigIntToStringDecimal(rawAmount: bigint | number, decimals: numb
 				return "";
 			}
 			return "." + g1;
-		})
+		});
 	}
 	return result;
 }
@@ -132,8 +141,10 @@ export function stringDecimalToBigInt(str: string | number, decimals: number): b
 	if (!intPart && !decimalPart) {
 		return null;
 	}
-	const multiplier = 10n ** BigInt(Math.trunc(decimals))
-	const result = BigInt(intPart || "") * multiplier + BigInt(((decimalPart || "").substring(0, decimals) || "").padEnd(decimals, "0"));
+	const multiplier = 10n ** BigInt(Math.trunc(decimals));
+	const result =
+		BigInt(intPart || "") * multiplier +
+		BigInt(((decimalPart || "").substring(0, decimals) || "").padEnd(decimals, "0"));
 	if (sign) {
 		return result * -1n;
 	}
@@ -147,9 +158,13 @@ export function stringDecimalToBigInt(str: string | number, decimals: number): b
  * @param trimTrailingZeros If true, the result won't have trailing zeros. e.g. "0.100000" becomes "0.1"
  * @returns A user friendly string, e.g. "1.234567 SEI"
  */
-export function UIAmount(amount: bigint | string | number, unifiedDenom: string, trimTrailingZeros: boolean = false): string {
+export function UIAmount(
+	amount: bigint | string | number,
+	unifiedDenom: string,
+	trimTrailingZeros: boolean = false
+): string {
 	const tokenUserInfo = getUserTokenInfo(unifiedDenom);
-	if(typeof amount == "string"){
+	if (typeof amount == "string") {
 		amount = BigInt(amount);
 	}
 	return bigIntToStringDecimal(amount, tokenUserInfo.decimals, trimTrailingZeros) + " " + tokenUserInfo.symbol;

@@ -23,5 +23,5 @@ pub enum SdkMakerError {
 	#[error("{0}::{1}.{2} is not represented by a referenced type or non-object primitive")]
 	UnknownEnumVariantField(String, String, String),
 	#[error("{0}::{1}.{2} is defined as an array/tuple of multiple types, which this tool currently cannot handle.")]
-	EnumVariantFieldHasMultiTypedArray(String, String, String)
+	EnumVariantFieldHasMultiTypedArray(String, String, String),
 }

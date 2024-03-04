@@ -1,26 +1,27 @@
 use std::{marker::PhantomData, num::NonZeroUsize};
 
-use cosmwasm_std::{StdError, OverflowError};
+use cosmwasm_std::{OverflowError, StdError};
 
-use super::{SerializableItem, MaybeMutableStorage, concat_byte_array_pairs, map::StoredMap};
+use super::{concat_byte_array_pairs, map::StoredMap, MaybeMutableStorage, SerializableItem};
 
 pub struct StoredVec<'exec, V: SerializableItem> {
 	namespace: &'static [u8],
 	storage: MaybeMutableStorage<'exec>,
 	map: StoredMap<'exec, u32, V>,
-	len: u32
+	len: u32,
 }
 
 impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 	pub fn new(namespace: &'static [u8], storage: MaybeMutableStorage<'exec>) -> Self {
-		let len = storage.get(namespace).map(|data| {
-			u32::from_le_bytes(data.try_into().unwrap_or_default())
-		}).unwrap_or_default();
+		let len = storage
+			.get(namespace)
+			.map(|data| u32::from_le_bytes(data.try_into().unwrap_or_default()))
+			.unwrap_or_default();
 		Self {
 			namespace,
 			storage: storage.clone(),
 			map: StoredMap::new(namespace, storage),
-			len
+			len,
 		}
 	}
 	#[inline]
@@ -29,7 +30,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.storage.set(self.namespace, &value.to_le_bytes())
 	}
 	pub fn len(&self) -> u32 {
-		return self.len
+		return self.len;
 	}
 	pub fn get(&self, index: u32) -> Result<Option<V>, StdError> {
 		self.map.get(&index)
@@ -58,9 +59,9 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		let mut len = self.len();
 		for item in iter {
 			self.map.set(&len, &item)?;
-			len = len.checked_add(1).ok_or(
-				OverflowError::new(cosmwasm_std::OverflowOperation::Add, len, 1)
-			)?;
+			len = len
+				.checked_add(1)
+				.ok_or(OverflowError::new(cosmwasm_std::OverflowOperation::Add, len, 1))?;
 		}
 		self.set_len(len);
 		Ok(())
@@ -69,9 +70,9 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		let mut len = self.len();
 		for item in iter {
 			self.map.set(&len, item.as_ref())?;
-			len = len.checked_add(1).ok_or(
-				OverflowError::new(cosmwasm_std::OverflowOperation::Add, len, 1)
-			)?;
+			len = len
+				.checked_add(1)
+				.ok_or(OverflowError::new(cosmwasm_std::OverflowOperation::Add, len, 1))?;
 		}
 		self.set_len(len);
 		Ok(())
@@ -91,12 +92,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 	}
 	pub fn iter(&self) -> IndexedStoredItemIter<'exec, V> {
 		let len = self.len();
-		IndexedStoredItemIter::new(
-			self.namespace,
-			self.storage.clone(),
-			0,
-			len
-		)
+		IndexedStoredItemIter::new(self.namespace, self.storage.clone(), 0, len)
 	}
 	pub fn pop(&mut self) -> Result<Option<V>, StdError> {
 		let mut len = self.len();
@@ -112,17 +108,21 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 	pub fn push(&mut self, element: &V) -> Result<(), StdError> {
 		let mut len = self.len();
 		self.map.set(&len, element)?;
-		len = len.checked_add(1).ok_or(
-			OverflowError::new(cosmwasm_std::OverflowOperation::Add, len, 1)
-		)?;
+		len = len
+			.checked_add(1)
+			.ok_or(OverflowError::new(cosmwasm_std::OverflowOperation::Add, len, 1))?;
 		self.set_len(len);
 		Ok(())
 	}
 	pub fn remove(&mut self, index: u32) -> Result<V, StdError> {
-		let new_len = self.len().checked_sub(1).ok_or(
-			StdError::not_found("StoredVec out of bounds")
-		)?;
-		let result = self.map.get(&index)?.ok_or(StdError::not_found("StoredVec out of bounds"))?;
+		let new_len = self
+			.len()
+			.checked_sub(1)
+			.ok_or(StdError::not_found("StoredVec out of bounds"))?;
+		let result = self
+			.map
+			.get(&index)?
+			.ok_or(StdError::not_found("StoredVec out of bounds"))?;
 		for i in index..new_len {
 			self.map.set_raw_bytes(&i, &self.map.get_raw_bytes(&(i + 1)).unwrap());
 		}
@@ -131,22 +131,31 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		Ok(result)
 	}
 	pub fn swap(&self, index1: u32, index2: u32) -> Result<(), StdError> {
-		let tmp_value = self.map.get_raw_bytes(&index1)
+		let tmp_value = self
+			.map
+			.get_raw_bytes(&index1)
 			.ok_or(StdError::not_found("StoredVec out of bounds"))?;
 		self.map.set_raw_bytes(
 			&index1,
-			&self.map.get_raw_bytes(&index2)
-				.ok_or(StdError::not_found("StoredVec out of bounds"))?
+			&self
+				.map
+				.get_raw_bytes(&index2)
+				.ok_or(StdError::not_found("StoredVec out of bounds"))?,
 		);
 		self.map.set_raw_bytes(&index2, &tmp_value);
 		Ok(())
 	}
 	pub fn swap_remove(&mut self, index: u32) -> Result<V, StdError> {
-		let new_len = self.len().checked_sub(1).ok_or(
-			StdError::not_found("StoredVec out of bounds")
-		)?;
-		let result = self.map.get(&index)?.ok_or(StdError::not_found("StoredVec out of bounds"))?;
-		self.map.set_raw_bytes(&index, &self.map.get_raw_bytes(&new_len).unwrap());
+		let new_len = self
+			.len()
+			.checked_sub(1)
+			.ok_or(StdError::not_found("StoredVec out of bounds"))?;
+		let result = self
+			.map
+			.get(&index)?
+			.ok_or(StdError::not_found("StoredVec out of bounds"))?;
+		self.map
+			.set_raw_bytes(&index, &self.map.get_raw_bytes(&new_len).unwrap());
 		self.map.remove(&new_len);
 		self.set_len(new_len);
 		Ok(result)
@@ -165,18 +174,12 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 	}
 }
 
-
 impl<'exec, V: SerializableItem> IntoIterator for StoredVec<'exec, V> {
 	type Item = Result<V, StdError>;
 	type IntoIter = IndexedStoredItemIter<'exec, V>;
 	fn into_iter(self) -> Self::IntoIter {
 		let len = self.len();
-		IndexedStoredItemIter::new(
-			self.namespace,
-			self.storage,
-			0,
-			len
-		)
+		IndexedStoredItemIter::new(self.namespace, self.storage, 0, len)
 	}
 }
 impl<'exec, V: SerializableItem> IntoIterator for &StoredVec<'exec, V> {
@@ -184,12 +187,7 @@ impl<'exec, V: SerializableItem> IntoIterator for &StoredVec<'exec, V> {
 	type IntoIter = IndexedStoredItemIter<'exec, V>;
 	fn into_iter(self) -> Self::IntoIter {
 		let len = self.len();
-		IndexedStoredItemIter::new(
-			self.namespace,
-			self.storage.clone(),
-			0,
-			len
-		)
+		IndexedStoredItemIter::new(self.namespace, self.storage.clone(), 0, len)
 	}
 }
 
@@ -199,11 +197,17 @@ pub struct IndexedStoredItemIter<'exec, V: SerializableItem> {
 	storage: MaybeMutableStorage<'exec>,
 	start: u32,
 	end: u32,
-	value_type: PhantomData<V>
+	value_type: PhantomData<V>,
 }
 impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
 	pub fn new(namespace: &'static [u8], storage: MaybeMutableStorage<'exec>, start: u32, end: u32) -> Self {
-		Self { namespace, storage, start, end, value_type: PhantomData }
+		Self {
+			namespace,
+			storage,
+			start,
+			end,
+			value_type: PhantomData,
+		}
 	}
 	// TODO: move to respective traits when https://github.com/rust-lang/rust/issues/77404 is closed.
 	// don't needlessly de-serialize things when calling .skip()
@@ -213,35 +217,23 @@ impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
 				return Ok(());
 			} else {
 				// SAFTY: the n == 0 check literally just failed
-				return Err(unsafe{ NonZeroUsize::new_unchecked(n) })
+				return Err(unsafe { NonZeroUsize::new_unchecked(n) });
 			}
 		}
 		let result;
 		let new_start = self.start.wrapping_add(n as u32);
 		if self.start > self.end {
 			if new_start < self.start && new_start > self.end {
-				result = Err(
-					unsafe {
-						NonZeroUsize::new_unchecked((new_start - self.end) as usize)
-					}
-				);
-			}else{
+				result = Err(unsafe { NonZeroUsize::new_unchecked((new_start - self.end) as usize) });
+			} else {
 				result = Ok(());
 			}
 		} else {
 			if new_start < self.start {
-				result = Err(
-					unsafe {
-						NonZeroUsize::new_unchecked((new_start + (u32::MAX - self.end)) as usize)
-					}
-				);
-			}else if new_start > self.end {
-				result = Err(
-					unsafe {
-						NonZeroUsize::new_unchecked((new_start - self.end) as usize)
-					}
-				);
-			}else{
+				result = Err(unsafe { NonZeroUsize::new_unchecked((new_start + (u32::MAX - self.end)) as usize) });
+			} else if new_start > self.end {
+				result = Err(unsafe { NonZeroUsize::new_unchecked((new_start - self.end) as usize) });
+			} else {
 				result = Ok(());
 			}
 		}
@@ -259,34 +251,22 @@ impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
 				return Ok(());
 			} else {
 				// SAFTY: the n == 0 check literally just failed
-				return Err(unsafe{ NonZeroUsize::new_unchecked(n) })
+				return Err(unsafe { NonZeroUsize::new_unchecked(n) });
 			}
 		}
 		let result;
 		let new_end = self.end.wrapping_sub(n as u32);
 		if self.start > self.end {
 			if new_end > self.end && new_end < self.start {
-				result = Err(
-					unsafe {
-						NonZeroUsize::new_unchecked((self.start - new_end) as usize)
-					}
-				);
+				result = Err(unsafe { NonZeroUsize::new_unchecked((self.start - new_end) as usize) });
 			} else {
 				result = Ok(())
 			}
 		} else {
 			if new_end < self.start {
-				result = Err(
-					unsafe {
-						NonZeroUsize::new_unchecked((self.start - new_end) as usize)
-					}
-				);
+				result = Err(unsafe { NonZeroUsize::new_unchecked((self.start - new_end) as usize) });
 			} else if new_end > self.end {
-				result = Err(
-					unsafe {
-						NonZeroUsize::new_unchecked((self.start + (u32::MAX - new_end)) as usize)
-					}
-				);
+				result = Err(unsafe { NonZeroUsize::new_unchecked((self.start + (u32::MAX - new_end)) as usize) });
 			} else {
 				result = Ok(())
 			}
@@ -298,7 +278,7 @@ impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
 			self.end = self.start;
 		}
 		result
-    }
+	}
 }
 
 impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<'exec, V> {
@@ -307,21 +287,20 @@ impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<'exec, V> {
 		if self.start == self.end {
 			return None;
 		}
-		let Some(data) = self.storage.get(
-			&concat_byte_array_pairs(self.namespace, &self.start.to_le_bytes())
-		) else {
+		let Some(data) = self
+			.storage
+			.get(&concat_byte_array_pairs(self.namespace, &self.start.to_le_bytes()))
+		else {
 			return None;
 		};
 		self.start = self.start.wrapping_add(1);
-		Some(
-			V::deserialize(&data)
-		)
+		Some(V::deserialize(&data))
 	}
 	fn nth(&mut self, n: usize) -> Option<Self::Item> {
 		self.advance_by(n).ok()?;
 		self.next()
 	}
-	
+
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let result;
 		if self.start > self.end {
@@ -333,20 +312,19 @@ impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<'exec, V> {
 	}
 }
 impl<'exec, V: SerializableItem> DoubleEndedIterator for IndexedStoredItemIter<'exec, V> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        if self.start == self.end {
+	fn next_back(&mut self) -> Option<Self::Item> {
+		if self.start == self.end {
 			return None;
 		}
 		self.end = self.end.wrapping_sub(1);
-		let Some(data) = self.storage.get(
-			&concat_byte_array_pairs(self.namespace, &self.end.to_le_bytes())
-		) else {
+		let Some(data) = self
+			.storage
+			.get(&concat_byte_array_pairs(self.namespace, &self.end.to_le_bytes()))
+		else {
 			return None;
 		};
-		Some(
-			V::deserialize(&data)
-		)
-    }
+		Some(V::deserialize(&data))
+	}
 	fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
 		self.advance_back_by(n).ok()?;
 		self.next_back()
