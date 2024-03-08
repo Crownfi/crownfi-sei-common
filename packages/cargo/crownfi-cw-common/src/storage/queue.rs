@@ -225,3 +225,76 @@ impl<'exec, V: SerializableItem> IntoIterator for &StoredVecDeque<'exec, V> {
 		IndexedStoredItemIter::new(self.namespace, self.storage.clone(), ends.front, ends.back)
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use std::{cell::RefCell, collections::VecDeque, rc::Rc};
+
+	use cosmwasm_std::{testing::MockStorage, Storage};
+
+	use super::*;
+
+	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+	const NAMESPACE: &[u8] = b"testing";
+
+	#[test]
+	fn queue() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage);
+		queue.push_front(&69)?;
+		queue.push_back(&420)?;
+		queue.push_front(&1234)?;
+		queue.pop_back()?;
+
+		let queue_: VecDeque<u16> = queue.iter().filter_map(Result::ok).collect();
+		let sample = VecDeque::<u16>::from([1234, 69]);
+
+		assert_eq!(queue_, sample);
+		assert_eq!(Some(1234), queue.get_front()?);
+		assert_eq!(Some(69), queue.get_back()?);
+
+		Ok(())
+	}
+
+	#[test]
+	fn queue_rm() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage__ = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage__.clone());
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+		queue.push_front(&69)?;
+		queue.push_back(&420)?;
+		queue.push_front(&1234)?;
+		queue.pop_back()?;
+
+		// using different pointers just as a sanity check
+		storage__.borrow_mut().remove(NAMESPACE);
+		let data = storage.get(NAMESPACE);
+		assert!(data.is_none());
+
+		Ok(())
+	}
+
+	// XXX: Aritz doesn't know how to handle it,
+	// but at least this proves that the vec caches its length
+	#[test]
+	fn wanted_behavior_question_mark() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+
+		queue.push_front(&69)?;
+		queue.push_back(&420)?;
+
+		storage.remove(NAMESPACE);
+
+		assert!(storage.get(NAMESPACE).is_none());
+		assert!(queue.into_iter().all(|x| x.is_ok()));
+
+		Ok(())
+	}
+}

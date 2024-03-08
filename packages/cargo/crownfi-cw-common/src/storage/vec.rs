@@ -369,16 +369,18 @@ mod tests {
 
 	use super::*;
 
-	type TestingError<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+	const NAMESPACE: &[u8] = b"testing";
+
+	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 	#[test]
-	fn stored_vec() -> TestingError {
+	fn stored_vec() -> TestingResult {
 		let mut storage_ = MockStorage::new();
 		// would be cool if we could make this into a static variable
 		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
 		let storage = MaybeMutableStorage::new_mutable_shared(storage);
 
-		let mut vec = StoredVec::<u16>::new(b"testing", storage);
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage);
 		vec.push(&69)?;
 		vec.push(&420)?;
 
@@ -389,18 +391,18 @@ mod tests {
 	}
 
 	#[test]
-	fn stored_vec_after_drop() -> TestingError {
+	fn stored_vec_after_drop() -> TestingResult {
 		let mut storage_ = MockStorage::new();
 		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
 		let storage = MaybeMutableStorage::new_mutable_shared(storage);
 
-		let mut vec = StoredVec::<u16>::new(b"testing", storage.clone());
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
 		vec.push(&69)?;
 		vec.push(&420)?;
 
 		drop(vec);
 
-		let vec: Vec<u16> = StoredVec::<u16>::new(b"testing", storage)
+		let vec: Vec<u16> = StoredVec::<u16>::new(NAMESPACE, storage)
 			.into_iter()
 			.filter_map(Result::ok)
 			.collect();

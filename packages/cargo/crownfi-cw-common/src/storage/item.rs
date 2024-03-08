@@ -201,10 +201,10 @@ mod tests {
 		}
 	}
 
-	type TestingError<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 	#[test]
-	fn autosaving_stored_item() -> TestingError {
+	fn autosaving_stored_item() -> TestingResult {
 		let mut storage_ = MockStorage::new();
 		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
 		let mut item = u8::load_with_autosave_or_default(&storage)?;
@@ -218,7 +218,7 @@ mod tests {
 	}
 
 	#[test]
-	fn autosaving_stored_item_rm() -> TestingError {
+	fn autosaving_stored_item_rm() -> TestingResult {
 		let mut storage_ = MockStorage::new();
 		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
 		let mut item = u8::load_with_autosave_or_default(&storage)?;
