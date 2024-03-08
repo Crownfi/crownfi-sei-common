@@ -16,6 +16,7 @@ pub struct StoredVecDeque<'exec, V: SerializableItem> {
 	map: StoredMap<'exec, u32, V>,
 	ends: QueueEnds,
 }
+
 impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 	pub fn new(namespace: &'static [u8], storage: MaybeMutableStorage<'exec>) -> Self {
 		let ends = storage
@@ -38,6 +39,7 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 				}
 			})
 			.unwrap_or_default();
+
 		Self {
 			namespace,
 			storage: storage.clone(),
@@ -45,6 +47,7 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 			ends,
 		}
 	}
+
 	#[inline]
 	fn set_ends(&mut self, value: QueueEnds) {
 		self.ends = value;
@@ -55,13 +58,16 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 		};
 		self.storage.set(self.namespace, &bytemuck::bytes_of(&value))
 	}
+
 	#[inline]
 	pub fn ends(&self) -> QueueEnds {
 		self.ends
 	}
+
 	fn to_raw_index(&self, index: u32) -> u32 {
 		index.wrapping_add(self.ends().front)
 	}
+
 	pub fn len(&self) -> u32 {
 		let ends = self.ends();
 		if ends.back >= ends.front {
@@ -70,18 +76,21 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 			u32::MAX - (ends.front - ends.back)
 		}
 	}
+
 	pub fn get(&self, index: u32) -> StdResult<Option<V>> {
 		if index >= self.len() {
 			return Err(StdError::not_found("StoredVecDeque out of bounds"));
 		}
 		self.map.get(&self.to_raw_index(index))
 	}
+
 	pub fn set(&self, index: u32, value: &V) -> StdResult<()> {
 		if index >= self.len() {
 			return Err(StdError::not_found("StoredVecDeque out of bounds"));
 		}
 		self.map.set(&self.to_raw_index(index), value)
 	}
+
 	pub fn swap(&self, index1: u32, index2: u32) -> StdResult<()> {
 		let index1 = self.to_raw_index(index1);
 		let index2 = self.to_raw_index(index2);
@@ -99,17 +108,21 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 		self.map.set_raw_bytes(&index2, &tmp_value);
 		Ok(())
 	}
+
 	pub fn capacity(&self) -> u32 {
 		u32::MAX
 	}
+
 	pub fn iter(&self) -> IndexedStoredItemIter<'exec, V> {
 		let ends = self.ends();
 		IndexedStoredItemIter::new(self.namespace, self.storage.clone(), ends.front, ends.back)
 	}
+
 	#[inline]
 	pub fn is_empty(&self) -> bool {
 		self.ends.front == self.ends.back
 	}
+
 	pub fn clear(&mut self, dirty: bool) {
 		if !dirty {
 			while self.ends.front != self.ends.back {
@@ -119,18 +132,21 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 		}
 		self.set_ends(QueueEnds { front: 0, back: 0 });
 	}
+
 	pub fn get_back(&self) -> StdResult<Option<V>> {
 		if self.is_empty() {
 			return Ok(None);
 		}
 		self.map.get(&self.ends.back.wrapping_sub(1))
 	}
+
 	pub fn set_back(&self, value: &V) -> StdResult<()> {
 		if self.is_empty() {
 			return Err(StdError::not_found("StoredVecDeque out of bounds"));
 		}
 		self.map.set(&self.ends.back.wrapping_sub(1), value)
 	}
+
 	pub fn pop_back(&mut self) -> StdResult<Option<V>> {
 		if self.is_empty() {
 			return Ok(None);
@@ -142,6 +158,7 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 		self.set_ends(ends);
 		Ok(result)
 	}
+
 	pub fn push_back(&mut self, value: &V) -> StdResult<()> {
 		let mut ends = self.ends();
 		if ends.back.wrapping_add(1) == ends.front {
@@ -152,18 +169,21 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 		self.set_ends(ends);
 		Ok(())
 	}
+
 	pub fn get_front(&self) -> StdResult<Option<V>> {
 		if self.is_empty() {
 			return Ok(None);
 		}
 		self.map.get(&self.ends.front)
 	}
+
 	pub fn set_front(&self, value: &V) -> StdResult<()> {
 		if self.is_empty() {
 			return Err(StdError::not_found("StoredVecDeque out of bounds"));
 		}
 		self.map.set(&self.ends.front, value)
 	}
+
 	pub fn pop_front(&mut self) -> StdResult<Option<V>> {
 		if self.is_empty() {
 			return Ok(None);
@@ -175,6 +195,7 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 		self.set_ends(ends);
 		Ok(result)
 	}
+
 	pub fn push_front(&mut self, value: &V) -> StdResult<()> {
 		let mut ends = self.ends();
 		ends.front = ends.front.wrapping_sub(1);
@@ -195,6 +216,7 @@ impl<'exec, V: SerializableItem> IntoIterator for StoredVecDeque<'exec, V> {
 		IndexedStoredItemIter::new(self.namespace, self.storage, ends.front, ends.back)
 	}
 }
+
 impl<'exec, V: SerializableItem> IntoIterator for &StoredVecDeque<'exec, V> {
 	type Item = Result<V, StdError>;
 	type IntoIter = IndexedStoredItemIter<'exec, V>;

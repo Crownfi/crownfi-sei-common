@@ -17,6 +17,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 			.get(namespace)
 			.map(|data| u32::from_le_bytes(data.try_into().unwrap_or_default()))
 			.unwrap_or_default();
+
 		Self {
 			namespace,
 			storage: storage.clone(),
@@ -24,17 +25,21 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 			len,
 		}
 	}
+
 	#[inline]
 	fn set_len(&mut self, value: u32) {
 		self.len = value;
 		self.storage.set(self.namespace, &value.to_le_bytes())
 	}
+
 	pub fn len(&self) -> u32 {
 		return self.len;
 	}
+
 	pub fn get(&self, index: u32) -> Result<Option<V>, StdError> {
 		self.map.get(&index)
 	}
+
 	pub fn set(&self, index: u32, value: &V) -> Result<(), StdError> {
 		if index >= self.len() {
 			return Err(StdError::not_found("StoredVec out of bounds"));
@@ -42,10 +47,12 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.map.set(&index, value)?;
 		Ok(())
 	}
+
 	#[inline]
 	pub fn capacity(&self) -> u32 {
 		u32::MAX
 	}
+
 	pub fn clear(&mut self, dirty: bool) {
 		if !dirty {
 			let len = self.len();
@@ -55,6 +62,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		}
 		self.set_len(0);
 	}
+
 	pub fn extend<I: Iterator<Item = V>>(&mut self, iter: I) -> Result<(), StdError> {
 		let mut len = self.len();
 		for item in iter {
@@ -66,6 +74,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.set_len(len);
 		Ok(())
 	}
+
 	pub fn extend_ref<R: AsRef<V>, I: Iterator<Item = R>>(&mut self, iter: I) -> Result<(), StdError> {
 		let mut len = self.len();
 		for item in iter {
@@ -77,6 +86,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.set_len(len);
 		Ok(())
 	}
+
 	pub fn insert(&mut self, index: u32, element: &V) -> Result<(), StdError> {
 		let len = self.len();
 		if index > len {
@@ -87,13 +97,16 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		}
 		self.map.set(&index, element)
 	}
+
 	pub fn is_empty(&self) -> bool {
 		self.len() == 0
 	}
+
 	pub fn iter(&self) -> IndexedStoredItemIter<'exec, V> {
 		let len = self.len();
 		IndexedStoredItemIter::new(self.namespace, self.storage.clone(), 0, len)
 	}
+
 	pub fn pop(&mut self) -> Result<Option<V>, StdError> {
 		let mut len = self.len();
 		if len == 0 {
@@ -105,6 +118,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.set_len(len);
 		Ok(result)
 	}
+
 	pub fn push(&mut self, element: &V) -> Result<(), StdError> {
 		let mut len = self.len();
 		self.map.set(&len, element)?;
@@ -114,6 +128,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.set_len(len);
 		Ok(())
 	}
+
 	pub fn remove(&mut self, index: u32) -> Result<V, StdError> {
 		let new_len = self
 			.len()
@@ -130,6 +145,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.set_len(new_len);
 		Ok(result)
 	}
+
 	pub fn swap(&self, index1: u32, index2: u32) -> Result<(), StdError> {
 		let tmp_value = self
 			.map
@@ -145,6 +161,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.map.set_raw_bytes(&index2, &tmp_value);
 		Ok(())
 	}
+
 	pub fn swap_remove(&mut self, index: u32) -> Result<V, StdError> {
 		let new_len = self
 			.len()
@@ -160,6 +177,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.set_len(new_len);
 		Ok(result)
 	}
+
 	pub fn truncate(&mut self, len: u32, dirty: bool) {
 		let cur_len = self.len();
 		if cur_len <= len {
@@ -182,6 +200,7 @@ impl<'exec, V: SerializableItem> IntoIterator for StoredVec<'exec, V> {
 		IndexedStoredItemIter::new(self.namespace, self.storage, 0, len)
 	}
 }
+
 impl<'exec, V: SerializableItem> IntoIterator for &StoredVec<'exec, V> {
 	type Item = Result<V, StdError>;
 	type IntoIter = IndexedStoredItemIter<'exec, V>;
@@ -199,6 +218,7 @@ pub struct IndexedStoredItemIter<'exec, V: SerializableItem> {
 	end: u32,
 	value_type: PhantomData<V>,
 }
+
 impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
 	pub fn new(namespace: &'static [u8], storage: MaybeMutableStorage<'exec>, start: u32, end: u32) -> Self {
 		Self {
@@ -209,6 +229,7 @@ impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
 			value_type: PhantomData,
 		}
 	}
+
 	// TODO: move to respective traits when https://github.com/rust-lang/rust/issues/77404 is closed.
 	// don't needlessly de-serialize things when calling .skip()
 	pub fn advance_by(&mut self, n: usize) -> Result<(), NonZeroUsize> {
@@ -245,6 +266,7 @@ impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
 		}
 		result
 	}
+
 	fn advance_back_by(&mut self, n: usize) -> Result<(), NonZeroUsize> {
 		if self.start == self.end {
 			if n == 0 {
@@ -283,6 +305,7 @@ impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
 
 impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<'exec, V> {
 	type Item = Result<V, StdError>;
+
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.start == self.end {
 			return None;
@@ -296,6 +319,7 @@ impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<'exec, V> {
 		self.start = self.start.wrapping_add(1);
 		Some(V::deserialize(&data))
 	}
+
 	fn nth(&mut self, n: usize) -> Option<Self::Item> {
 		self.advance_by(n).ok()?;
 		self.next()
@@ -311,6 +335,7 @@ impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<'exec, V> {
 		(result as usize, Some(result as usize))
 	}
 }
+
 impl<'exec, V: SerializableItem> DoubleEndedIterator for IndexedStoredItemIter<'exec, V> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		if self.start == self.end {
@@ -325,11 +350,62 @@ impl<'exec, V: SerializableItem> DoubleEndedIterator for IndexedStoredItemIter<'
 		};
 		Some(V::deserialize(&data))
 	}
+
 	fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
 		self.advance_back_by(n).ok()?;
 		self.next_back()
 	}
 }
+
 impl<'exec, V: SerializableItem> ExactSizeIterator for IndexedStoredItemIter<'exec, V> {
 	// relies on size_hint to return 2 exact numbers
+}
+
+#[cfg(test)]
+mod tests {
+	use std::{cell::RefCell, rc::Rc};
+
+	use cosmwasm_std::{testing::MockStorage, Storage};
+
+	use super::*;
+
+	type TestingError<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+	#[test]
+	fn stored_vec() -> TestingError {
+		let mut storage_ = MockStorage::new();
+		// would be cool if we could make this into a static variable
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+
+		let mut vec = StoredVec::<u16>::new(b"testing", storage);
+		vec.push(&69)?;
+		vec.push(&420)?;
+
+		let vec: Vec<u16> = vec.into_iter().filter_map(Result::ok).collect();
+		assert_eq!(vec, vec![69, 420]);
+
+		Ok(())
+	}
+
+	#[test]
+	fn stored_vec_after_drop() -> TestingError {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+
+		let mut vec = StoredVec::<u16>::new(b"testing", storage.clone());
+		vec.push(&69)?;
+		vec.push(&420)?;
+
+		drop(vec);
+
+		let vec: Vec<u16> = StoredVec::<u16>::new(b"testing", storage)
+			.into_iter()
+			.filter_map(Result::ok)
+			.collect();
+		assert_eq!(vec, vec![69, 420]);
+
+		Ok(())
+	}
 }

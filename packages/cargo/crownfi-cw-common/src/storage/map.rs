@@ -5,6 +5,7 @@ use super::{
 	concat_byte_array_pairs, item::AutosavingSerializableItem, lexicographic_next, MaybeMutableStorage,
 	SerializableItem,
 };
+
 pub struct StoredMap<'exec, K: SerializableItem, V: SerializableItem> {
 	namespace: &'static [u8],
 	storage: MaybeMutableStorage<'exec>,
@@ -173,6 +174,7 @@ impl<'a, K: SerializableItem, V: SerializableItem> StoredMapIter<'a, K, V> {
 		})
 	}
 }
+
 impl<'a, K: SerializableItem, V: SerializableItem> Iterator for StoredMapIter<'a, K, V> {
 	type Item = (K, V);
 	fn next(&mut self) -> Option<Self::Item> {
@@ -190,6 +192,7 @@ impl<'a, K: SerializableItem, V: SerializableItem> Iterator for StoredMapIter<'a
 		Some((deserialized_key, V::deserialize(&value_bytes).ok()?))
 	}
 }
+
 impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for StoredMapIter<'a, K, V> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		let Some((key_bytes, value_bytes)) = self
@@ -210,9 +213,8 @@ impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for Store
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::env::ClonableEnvInfoMut;
 	use cosmwasm_std::{Addr, Coin, Uint128};
-	use cw_multi_test::{App, ContractWrapper, Executor};
+	use cw_multi_test::App;
 	use std::{cell::RefCell, rc::Rc};
 
 	fn init_test_app(owner: &Addr) -> App {
@@ -231,6 +233,7 @@ mod tests {
 				.unwrap()
 		})
 	}
+
 	#[test]
 	fn stored_map_iter() {
 		// Seed phrase: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
