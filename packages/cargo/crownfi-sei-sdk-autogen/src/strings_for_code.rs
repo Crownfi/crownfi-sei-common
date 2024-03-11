@@ -327,3 +327,6 @@ impl MethodArgType<'_> {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {}

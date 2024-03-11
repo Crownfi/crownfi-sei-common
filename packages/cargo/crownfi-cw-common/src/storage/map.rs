@@ -217,6 +217,8 @@ mod tests {
 	use cw_multi_test::App;
 	use std::{cell::RefCell, rc::Rc};
 
+	const NAMESPACE: &[u8] = b"testing";
+
 	fn init_test_app(owner: &Addr) -> App {
 		App::new(|router, _, storage| {
 			// initialization moved to App construction
@@ -242,7 +244,7 @@ mod tests {
 		let mut app = init_test_app(&tester_addr);
 		let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
 
-		let stored_map = StoredMap::<String, String>::new(b"namespace", storage.clone());
+		let stored_map = StoredMap::<String, String>::new(NAMESPACE, storage.clone());
 		stored_map.set(&"key1".to_string(), &"val1".to_string()).unwrap();
 		assert_eq!(stored_map.get(&"key1".to_string()), Ok(Some("val1".into())));
 		assert_eq!(stored_map.iter().unwrap().next(), Some(("key1".into(), "val1".into())));
@@ -270,5 +272,78 @@ mod tests {
 		assert_eq!(stored_map_iter.next(), Some(("key2".into(), "val2".into())));
 		assert_eq!(stored_map_iter.next(), Some(("key3".into(), "val3".into())));
 		assert_eq!(stored_map_iter.next(), None);
+	}
+
+	#[test]
+	fn basic() {
+		let tester_addr = Addr::unchecked("sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m");
+		let mut app = init_test_app(&tester_addr);
+		let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
+		let stored_map = StoredMap::<String, String>::new(NAMESPACE, storage.clone());
+
+		let key = String::from("key1");
+		let value = String::from("val1");
+
+		stored_map.set(&key, &value).unwrap();
+		assert!(stored_map.has(&key));
+		assert_eq!(stored_map.get(&"banana".to_string()).unwrap(), None);
+		assert_eq!(stored_map.get(&key).unwrap(), Some(value));
+	}
+
+	#[test]
+	fn raw() {
+		let tester_addr = Addr::unchecked("sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m");
+		let mut app = init_test_app(&tester_addr);
+		let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
+		let stored_map = StoredMap::<[u8; 4], [u8; 4]>::new(NAMESPACE, storage.clone());
+
+		let key = b"key1";
+		let value = b"val1";
+
+		stored_map.set_raw_bytes(key, value);
+		assert_eq!(stored_map.get(key).unwrap(), Some(value.to_owned()));
+		assert_eq!(stored_map.get_raw_bytes(key), Some(b"val1".to_vec()));
+	}
+
+	// XXX: idk if that's unespected behavior
+	#[test]
+	#[should_panic]
+	fn panic_on_unknown_length() {
+		let tester_addr = Addr::unchecked("sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m");
+		let mut app = init_test_app(&tester_addr);
+		let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
+		let stored_map = StoredMap::<String, String>::new(NAMESPACE, storage.clone());
+
+		let key = String::from("key1");
+		let value = String::from("val1");
+
+		stored_map.set_raw_bytes(&key, value.as_bytes());
+		stored_map.get_raw_bytes(&key).unwrap(); // SHOULD PANIC
+		assert!(false); // SHOULD NOT BE REACHED
+	}
+
+	#[test]
+	fn autosaving() {
+		let tester_addr = Addr::unchecked("sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m");
+		let mut app = init_test_app(&tester_addr);
+		let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
+		let stored_map = StoredMap::<String, String>::new(NAMESPACE, storage.clone());
+
+		let key = String::from("key1");
+		let fake_key = String::from("banana");
+		let value = String::from("val1");
+
+		stored_map.set(&key, &value).unwrap();
+		let v1 = stored_map.get_autosaving(&key).unwrap().unwrap();
+		let v2 = stored_map.get_or_default_autosaving(&fake_key).unwrap();
+
+		assert_eq!(*v1, value);
+		assert_eq!(*v2, "");
+
+		drop(v1);
+		drop(v2);
+
+		assert!(storage.get(&stored_map.key(&key)).is_some());
+		assert!(storage.get(&stored_map.key(&fake_key)).is_some()); // expected behavior?
 	}
 }

@@ -38,6 +38,7 @@ pub enum FungibleAssetKindString {
 	Native(String),
 	CW20(String),
 }
+
 impl FungibleAssetKindString {
 	pub fn try_into_asset_kind(self, api: &dyn Api) -> Result<FungibleAssetKind, StdError> {
 		match self {

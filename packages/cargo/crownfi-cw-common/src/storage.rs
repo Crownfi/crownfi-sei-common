@@ -341,6 +341,7 @@ impl SerializableItem for () {
 		Ok(())
 	}
 }
+
 impl<T, const N: usize> SerializableItem for [T; N]
 where
 	T: Pod,
@@ -386,6 +387,7 @@ pub enum MaybeMutableStorage<'exec> {
 	Immutable(&'exec dyn Storage),
 	MutableShared(Rc<RefCell<&'exec mut dyn Storage>>),
 }
+
 impl<'exec> MaybeMutableStorage<'exec> {
 	pub fn new_immutable(storage: &'exec dyn Storage) -> Self {
 		Self::Immutable(storage)
