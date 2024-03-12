@@ -201,6 +201,12 @@ mod tests {
 		}
 	}
 
+	impl StoredItem for (u16, u16) {
+		fn namespace() -> &'static [u8] {
+			b"testing2"
+		}
+	}
+
 	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 	#[test]
@@ -208,11 +214,17 @@ mod tests {
 		let mut storage_ = MockStorage::new();
 		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
 		let mut item = u8::load_with_autosave_or_default(&storage)?;
-		*item = 69;
 
+		*item = 69;
 		drop(item);
 
-		assert_eq!(69, u8::load(&mut storage_)?.unwrap());
+		let mut item = u8::load_with_autosave(&storage)?.unwrap();
+		assert_eq!(69, *item);
+
+		*item *= 2;
+		assert_eq!(69, u8::load(*storage.borrow())?.unwrap());
+		drop(item);
+		assert_eq!(69 * 2, u8::load(&storage_)?.unwrap());
 
 		Ok(())
 	}
@@ -227,6 +239,24 @@ mod tests {
 
 		u8::remove(&mut storage_);
 		assert_eq!(None, u8::load(&mut storage_)?);
+
+		Ok(())
+	}
+
+	// testing borsh serialize/deserialize
+	#[test]
+	fn autosaving_tuple_items() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let mut item = <(u16, u16)>::load_with_autosave_or_default(&storage)?;
+
+		*item = (69, 420);
+		drop(item);
+
+		assert_eq!(Some((69, 420)), <(u16, u16)>::load(&mut storage_)?);
+
+		<(u16, u16)>::remove(&mut storage_);
+		assert_eq!(None, <(u16, u16)>::load(&mut storage_)?);
 
 		Ok(())
 	}
