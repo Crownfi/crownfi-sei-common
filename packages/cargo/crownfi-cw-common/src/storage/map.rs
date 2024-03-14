@@ -334,16 +334,22 @@ mod tests {
 		let value = String::from("val1");
 
 		stored_map.set(&key, &value).unwrap();
-		let v1 = stored_map.get_autosaving(&key).unwrap().unwrap();
+		let mut v1 = stored_map.get_autosaving(&key).unwrap().unwrap();
 		let v2 = stored_map.get_or_default_autosaving(&fake_key).unwrap();
 
 		assert_eq!(*v1, value);
 		assert_eq!(*v2, "");
 
+		*v1 = String::from("banana2");
+
 		drop(v1);
 		drop(v2);
 
 		assert!(storage.get(&stored_map.key(&key)).is_some());
-		assert!(storage.get(&stored_map.key(&fake_key)).is_some()); // expected behavior?
+		// XXX: expected behavior?
+		assert!(storage.get(&stored_map.key(&fake_key)).is_some());
+
+		let v1 = stored_map.get(&key).unwrap().unwrap();
+		assert_eq!(v1, String::from("banana2"));
 	}
 }
