@@ -380,18 +380,128 @@ mod tests {
 		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
 		let storage = MaybeMutableStorage::new_mutable_shared(storage);
 
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage);
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
 		vec.push(&69)?;
 		vec.push(&420)?;
 
 		let vec: Vec<u16> = vec.into_iter().filter_map(Result::ok).collect();
 		assert_eq!(vec, vec![69, 420]);
 
+		let vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		assert_eq!(2, vec.len());
+		assert_eq!(Some(69), vec.get(0)?);
+		assert_eq!(Some(420), vec.get(1)?);
+
+		vec.set(0, &123)?;
+		assert!(vec.set(vec.len() + 1, &123).is_err());
+		assert_eq!(Some(123), vec.get(0)?);
+
+		assert_eq!(vec.capacity(), u32::MAX); // unnecessary, but i wanted to see all the function tested on the HTML file
+
 		Ok(())
 	}
 
 	#[test]
-	fn stored_vec_after_drop() -> TestingResult {
+	fn extend() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+
+		vec.push(&69)?;
+		vec.push(&420)?;
+		vec.extend([1, 2, 3].into_iter())?;
+		vec.extend_ref([Box::new(4)].into_iter())?;
+
+		let vec: Vec<u16> = vec.into_iter().filter_map(Result::ok).collect();
+		assert_eq!(vec, vec![69, 420, 1, 2, 3, 4]);
+
+		Ok(())
+	}
+
+	#[test]
+	fn insert_and_remove() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+
+		vec.push(&69)?;
+		vec.push(&420)?;
+
+		vec.insert(1, &1)?;
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		assert_eq!(v, vec![69, 1]);
+
+		vec.remove(1)?;
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		assert_eq!(v, vec![69]);
+
+		vec.extend([1, 2, 3].into_iter())?;
+		vec.pop()?;
+
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		assert_eq!(v, vec![69, 1, 2]);
+
+		vec.remove(1)?;
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		assert_eq!(v, vec![69, 2]);
+
+		vec.clear(true);
+		assert!(vec.is_empty());
+		assert!(vec.pop()?.is_none());
+
+		Ok(())
+	}
+
+	#[test]
+	fn extra_ops() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+
+		vec.push(&69)?;
+		vec.push(&420)?;
+
+		vec.swap(0, 1)?;
+
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		assert_eq!(v, vec![420, 69]);
+
+		vec.extend([1, 2, 3].into_iter())?;
+		vec.swap_remove(1)?;
+
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		assert_eq!(v, vec![420, 3, 1, 2]);
+
+		vec.truncate(3, true);
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		assert_eq!(v, vec![420, 3, 1]);
+
+		let mut iterator = vec.iter();
+		iterator.advance_by(1).unwrap();
+		let v: Vec<_> = iterator.filter_map(Result::ok).collect();
+		assert_eq!(v, vec![3, 1]);
+
+		let mut iterator = vec.iter();
+		iterator.advance_back_by(1).unwrap();
+		let v: Vec<_> = iterator.filter_map(Result::ok).collect();
+		assert_eq!(v, vec![420, 3]);
+
+		let mut iterator = vec.iter();
+		let x = iterator.next_back().unwrap()?;
+		assert_eq!(x, 1);
+		let x = iterator.nth_back(0).unwrap()?;
+		assert_eq!(x, 3);
+		let x = iterator.nth(0).unwrap()?;
+		assert_eq!(x, 420);
+
+		Ok(())
+	}
+
+	#[test]
+	fn after_drop() -> TestingResult {
 		let mut storage_ = MockStorage::new();
 		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
 		let storage = MaybeMutableStorage::new_mutable_shared(storage);
@@ -407,6 +517,64 @@ mod tests {
 			.filter_map(Result::ok)
 			.collect();
 		assert_eq!(vec, vec![69, 420]);
+
+		Ok(())
+	}
+
+	#[test]
+	fn clean() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+
+		let push_values = |vec: &mut StoredVec<'_, u16>| -> TestingResult {
+			vec.push(&69)?;
+			vec.push(&420)?;
+			Ok(())
+		};
+
+		let check_values = |vec: &StoredVec<'_, u16>| -> TestingResult {
+			let vec: Vec<u16> = vec.iter().filter_map(Result::ok).collect();
+			assert_eq!(vec, vec![69, 420]);
+			Ok(())
+		};
+
+		push_values(&mut vec)?;
+		check_values(&vec)?;
+		vec.clear(true);
+		drop(vec);
+
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		let q: Vec<u16> = vec.iter().filter_map(Result::ok).collect();
+		assert_eq!(q.len(), 0);
+
+		push_values(&mut vec)?;
+		check_values(&vec)?;
+		vec.clear(false);
+		drop(vec);
+
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		let q: Vec<u16> = vec.iter().filter_map(Result::ok).collect();
+		assert_eq!(q.len(), 0);
+
+		push_values(&mut vec)?;
+		check_values(&vec)?;
+		drop(vec);
+
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		vec.clear(false);
+		let q: Vec<u16> = vec.iter().filter_map(Result::ok).collect();
+		assert_eq!(q.len(), 0);
+
+		push_values(&mut vec)?;
+		check_values(&vec)?;
+		drop(vec);
+
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage);
+		vec.clear(true);
+		let q: Vec<u16> = (&vec).into_iter().filter_map(Result::ok).collect();
+		assert_eq!(q.len(), 0);
 
 		Ok(())
 	}
