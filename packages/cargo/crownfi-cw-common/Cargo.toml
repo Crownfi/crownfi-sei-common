@@ -15,6 +15,7 @@ bytemuck = {workspace = true}
 serde = {workspace = true}
 bincode = {workspace = true}
 bech32 = {workspace = true}
+static_assertions = {workspace = true}
 
 [dev-dependencies]
 cw-multi-test = {workspace = true}

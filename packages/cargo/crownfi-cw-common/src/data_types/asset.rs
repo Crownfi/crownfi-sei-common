@@ -23,11 +23,23 @@ pub enum FungibleAssetKind {
 impl_serializable_borsh!(FungibleAssetKind);
 
 impl FungibleAssetKind {
+	#[deprecated = "use .try_into() instead. The use of the Api reference is unnecessary."]
 	pub fn try_into_stringable(self, api: &dyn Api) -> Result<FungibleAssetKindString, StdError> {
 		match self {
 			FungibleAssetKind::Native(denom) => Ok(FungibleAssetKindString::Native(denom)),
 			FungibleAssetKind::CW20(addr) => Ok(FungibleAssetKindString::CW20(
 				addr.into_addr_using_api(api)?.into_string(),
+			)),
+		}
+	}
+}
+impl TryFrom<FungibleAssetKindString> for FungibleAssetKind {
+	type Error = StdError;
+	fn try_from(value: FungibleAssetKindString) -> Result<Self, Self::Error> {
+		match value {
+			FungibleAssetKindString::Native(denom) => Ok(FungibleAssetKind::Native(denom)),
+			FungibleAssetKindString::CW20(addr) => Ok(FungibleAssetKind::CW20(
+				Addr::unchecked(addr).try_into()?
 			)),
 		}
 	}
@@ -39,6 +51,7 @@ pub enum FungibleAssetKindString {
 	CW20(String),
 }
 impl FungibleAssetKindString {
+	#[deprecated = "use .try_into() instead. The use of the Api reference is unnecessary."]
 	pub fn try_into_asset_kind(self, api: &dyn Api) -> Result<FungibleAssetKind, StdError> {
 		match self {
 			FungibleAssetKindString::Native(denom) => Ok(FungibleAssetKind::Native(denom)),
@@ -73,6 +86,18 @@ impl FungibleAssetKindString {
 		}
 	}
 }
+impl TryFrom<FungibleAssetKind> for FungibleAssetKindString {
+	type Error = StdError;
+	fn try_from(value: FungibleAssetKind) -> Result<Self, Self::Error> {
+		match value {
+			FungibleAssetKind::Native(denom) => Ok(FungibleAssetKindString::Native(denom)),
+			FungibleAssetKind::CW20(addr) => Ok(FungibleAssetKindString::CW20(
+				Addr::try_from(addr)?.into_string(),
+			)),
+		}
+	}
+}
+
 impl fmt::Display for FungibleAssetKindString {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {

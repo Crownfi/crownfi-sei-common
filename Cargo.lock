@@ -286,6 +286,7 @@ dependencies = [
  "cw20",
  "sei-cosmwasm",
  "serde",
+ "static_assertions",
 ]
 
 [[package]]

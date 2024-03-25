@@ -1,5 +1,5 @@
 use std::fmt::Display;
-
+#[cfg(not(target_arch = "wasm32"))]
 use bech32::{FromBase32, ToBase32};
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{Pod, Zeroable};
@@ -13,10 +13,12 @@ pub struct SeiCanonicalAddr {
 	bytes: [u8; 32],
 }
 impl SeiCanonicalAddr {
+	#[deprecated = "use .try_from() instead. The use of the Api reference is unnecessary."]
 	pub fn from_addr_using_api(addr: &Addr, api: &dyn Api) -> Result<Self, StdError> {
 		let canon_addr = api.addr_canonicalize(addr.as_str())?;
 		SeiCanonicalAddr::try_from(&canon_addr)
 	}
+	#[deprecated = "use .try_into() instead. The use of the Api reference is unnecessary."]
 	pub fn into_addr_using_api(&self, api: &dyn Api) -> Result<Addr, StdError> {
 		api.addr_humanize(&self.into())
 	}
@@ -96,18 +98,9 @@ impl From<SeiCanonicalAddr> for CanonicalAddr {
 	}
 }
 
-impl Display for SeiCanonicalAddr {
-	/// Use of this function is probably a waste of gas, good for CLI tools tho
-	/// If you're trying to do this in a contract, it might be worth using `into_addr_using_api` instead.
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str(&bech32::encode("sei", self.as_slice().to_base32(), bech32::Variant::Bech32).unwrap())
-	}
-}
-
+#[cfg(not(target_arch = "wasm32"))]
 impl TryFrom<&str> for SeiCanonicalAddr {
 	type Error = StdError;
-	/// Use of this function is probably a waste of gas, good for CLI tools tho.
-	/// If you're trying to do this in a contract, it might be worth using `from_addr_using_api` instead.
 	fn try_from(value: &str) -> Result<Self, Self::Error> {
 		let (prefix, words, _) = bech32::decode(&value)
 			.map_err(|err| StdError::parse_err("SeiCanonicalAddr", format!("bech32::decode error: {err}")))?;
@@ -120,6 +113,55 @@ impl TryFrom<&str> for SeiCanonicalAddr {
 		let bytes = Vec::<u8>::from_base32(&words)
 			.map_err(|err| StdError::parse_err("SeiCanonicalAddr", format!("base32 decode error error: {err}")))?;
 		Self::try_from(bytes.as_slice())
+	}
+}
+
+#[cfg(target_arch = "wasm32")]
+impl TryFrom<&str> for SeiCanonicalAddr {
+	type Error = StdError;
+	fn try_from(value: &str) -> Result<Self, Self::Error> {
+		Self::try_from(crate::wasm_api::addr::addr_canonicalize(value)?.as_slice())
+	}
+}
+
+impl TryFrom<Addr> for SeiCanonicalAddr {
+	type Error = StdError;
+	fn try_from(value: Addr) -> Result<Self, Self::Error> {
+		Self::try_from(value.as_str())
+	}
+}
+
+impl TryFrom<&Addr> for SeiCanonicalAddr {
+	type Error = StdError;
+	fn try_from(value: &Addr) -> Result<Self, Self::Error> {
+		Self::try_from(value.as_str())
+	}
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Display for SeiCanonicalAddr {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(&bech32::encode("sei", self.as_slice().to_base32(), bech32::Variant::Bech32).unwrap())
+	}
+}
+#[cfg(not(target_arch = "wasm32"))]
+impl TryFrom<SeiCanonicalAddr> for Addr {
+	type Error = StdError;
+	fn try_from(value: SeiCanonicalAddr) -> Result<Self, Self::Error> {
+		Ok(Addr::unchecked(value.to_string()))
+	}
+}
+#[cfg(target_arch = "wasm32")]
+impl Display for SeiCanonicalAddr {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(crate::wasm_api::addr::addr_humanize(self.as_slice()).unwrap().as_str())
+	}
+}
+#[cfg(target_arch = "wasm32")]
+impl TryFrom<SeiCanonicalAddr> for Addr {
+	type Error = StdError;
+	fn try_from(value: SeiCanonicalAddr) -> Result<Self, Self::Error> {
+		crate::wasm_api::addr::addr_humanize(value.as_slice())
 	}
 }
 
