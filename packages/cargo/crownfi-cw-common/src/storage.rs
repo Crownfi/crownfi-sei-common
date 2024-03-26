@@ -381,6 +381,9 @@ pub(crate) fn lexicographic_next(bytes: &[u8]) -> Vec<u8> {
 	result
 }
 
+// This will very likely be deprecated in the near future. This was created under the assumption that the specific
+// reference passed into the cosmwasm entrypoints actually... mattered.
+// Instead, the "Storage" API will be written in a manner where it can be globally conjured at any time.
 #[derive(Clone)]
 pub enum MaybeMutableStorage<'exec> {
 	Immutable(&'exec dyn Storage),
@@ -467,6 +470,9 @@ impl<'exec> MaybeMutableStorage<'exec> {
 				// mutable reference. Which means there's a lot more BS to go through in order to, for example,
 				// immutabily iterate over one mapping while mutabily iterating over another.
 				// I miss being able to RefMut::map_split(account_info.data.borrow_mut(), ...)
+				// --UPDATE--
+				// Turns out I don't _have_ to juggle around a single mutable reference, so this can be improved upon
+				// in the future.
 				storage
 					.borrow()
 					.range(Some(&next_key), before, cosmwasm_std::Order::Ascending)
