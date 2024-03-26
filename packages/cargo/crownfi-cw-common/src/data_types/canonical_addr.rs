@@ -151,6 +151,13 @@ impl TryFrom<SeiCanonicalAddr> for Addr {
 		Ok(Addr::unchecked(value.to_string()))
 	}
 }
+#[cfg(not(target_arch = "wasm32"))]
+impl TryFrom<&SeiCanonicalAddr> for Addr {
+	type Error = StdError;
+	fn try_from(value: &SeiCanonicalAddr) -> Result<Self, Self::Error> {
+		Ok(Addr::unchecked(value.to_string()))
+	}
+}
 #[cfg(target_arch = "wasm32")]
 impl Display for SeiCanonicalAddr {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -161,6 +168,13 @@ impl Display for SeiCanonicalAddr {
 impl TryFrom<SeiCanonicalAddr> for Addr {
 	type Error = StdError;
 	fn try_from(value: SeiCanonicalAddr) -> Result<Self, Self::Error> {
+		crate::wasm_api::addr::addr_humanize(value.as_slice())
+	}
+}
+#[cfg(target_arch = "wasm32")]
+impl TryFrom<&SeiCanonicalAddr> for Addr {
+	type Error = StdError;
+	fn try_from(value: &SeiCanonicalAddr) -> Result<Self, Self::Error> {
 		crate::wasm_api::addr::addr_humanize(value.as_slice())
 	}
 }
