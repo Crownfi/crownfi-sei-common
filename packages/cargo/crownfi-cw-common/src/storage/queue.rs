@@ -72,8 +72,9 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 	}
 	pub fn get(&self, index: u32) -> StdResult<Option<V>> {
 		if index >= self.len() {
-			return Err(StdError::not_found("StoredVecDeque out of bounds"));
+			return Ok(None);
 		}
+
 		self.map.get(&self.to_raw_index(index))
 	}
 	pub fn set(&self, index: u32, value: &V) -> StdResult<()> {
@@ -201,5 +202,36 @@ impl<'exec, V: SerializableItem> IntoIterator for &StoredVecDeque<'exec, V> {
 	fn into_iter(self) -> Self::IntoIter {
 		let ends = self.ends();
 		IndexedStoredItemIter::new(self.namespace, self.storage.clone(), ends.front, ends.back)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::{cell::RefCell, rc::Rc};
+
+	use cosmwasm_std::{testing::MockStorage, Storage};
+
+	use super::*;
+
+	const NAMESPACE: &[u8] = b"testing";
+
+	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+	fn get() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+
+		queue.push_front(&1)?;
+		queue.push_front(&2)?;
+		queue.push_front(&3)?;
+
+		let val = queue.get(3);
+
+		assert_eq!(queue.len(), 3);
+		assert_eq!(val, Ok(None));
+
+		Ok(())
 	}
 }

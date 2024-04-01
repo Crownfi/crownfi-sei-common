@@ -33,7 +33,10 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		return self.len;
 	}
 	pub fn get(&self, index: u32) -> Result<Option<V>, StdError> {
-		self.map.get(&index)
+		if index < self.len {
+			return self.map.get(&index);
+		}
+		Ok(None)
 	}
 	pub fn set(&self, index: u32, value: &V) -> Result<(), StdError> {
 		if index >= self.len() {
@@ -332,4 +335,34 @@ impl<'exec, V: SerializableItem> DoubleEndedIterator for IndexedStoredItemIter<'
 }
 impl<'exec, V: SerializableItem> ExactSizeIterator for IndexedStoredItemIter<'exec, V> {
 	// relies on size_hint to return 2 exact numbers
+}
+
+#[cfg(test)]
+mod tests {
+	use std::{cell::RefCell, rc::Rc};
+
+	use cosmwasm_std::{testing::MockStorage, Storage};
+
+	use super::*;
+
+	const NAMESPACE: &[u8] = b"testing";
+
+	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+	#[test]
+	fn get_after_dirty_clear() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+
+		vec.extend([1, 2, 3].into_iter())?;
+		vec.clear(true);
+
+		let val = vec.get(0);
+
+		assert_eq!(val, Ok(None));
+
+		Ok(())
+	}
 }
