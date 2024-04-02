@@ -79,8 +79,9 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 
 	pub fn get(&self, index: u32) -> StdResult<Option<V>> {
 		if index >= self.len() {
-			return Err(StdError::not_found("StoredVecDeque out of bounds"));
+			return Ok(None);
 		}
+
 		self.map.get(&self.to_raw_index(index))
 	}
 	pub fn set(&self, index: u32, value: &V) -> StdResult<()> {
@@ -236,6 +237,25 @@ mod tests {
 	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 	const NAMESPACE: &[u8] = b"testing";
+
+	#[test]
+	fn get() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+
+		queue.push_front(&1)?;
+		queue.push_front(&2)?;
+		queue.push_front(&3)?;
+
+		let val = queue.get(3);
+
+		assert_eq!(queue.len(), 3);
+		assert_eq!(val, Ok(None));
+
+		Ok(())
+	}
 
 	#[test]
 	fn queue() -> TestingResult {

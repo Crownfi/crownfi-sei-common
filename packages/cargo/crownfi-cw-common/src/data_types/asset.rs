@@ -33,7 +33,7 @@ impl FungibleAssetKind {
 	}
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
 pub enum FungibleAssetKindString {
 	Native(String),
 	CW20(String),

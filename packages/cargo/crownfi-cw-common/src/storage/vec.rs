@@ -37,7 +37,10 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 	}
 
 	pub fn get(&self, index: u32) -> Result<Option<V>, StdError> {
-		self.map.get(&index)
+		if index < self.len {
+			return self.map.get(&index);
+		}
+		Ok(None)
 	}
 
 	pub fn set(&self, index: u32, value: &V) -> Result<(), StdError> {
@@ -372,6 +375,23 @@ mod tests {
 	const NAMESPACE: &[u8] = b"testing";
 
 	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+	#[test]
+	fn get_after_dirty_clear() -> TestingResult {
+		let mut storage_ = MockStorage::new();
+		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
+		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+
+		vec.extend([1, 2, 3].into_iter())?;
+		vec.clear(true);
+
+		let val = vec.get(0);
+
+		assert_eq!(val, Ok(None));
+
+		Ok(())
+	}
 
 	#[test]
 	fn stored_vec() -> TestingResult {
