@@ -35,7 +35,10 @@ impl<'exec, V: SerializableItem> StoredVec<V> {
 		return self.len;
 	}
 	pub fn get(&self, index: u32) -> Result<Option<OZeroCopy<V>>, StdError> {
-		self.map.get(&index)
+		if index < self.len {
+			return self.map.get(&index);
+		}
+		Ok(None)
 	}
 	pub fn set(&self, index: u32, value: &V) -> Result<(), StdError> {
 		if index >= self.len() {
