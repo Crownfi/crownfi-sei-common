@@ -26,7 +26,7 @@ impl SeiCanonicalAddr {
 			&self.bytes
 		}
 	}
-	/// Checks if this is equal to the given addr using the Api
+	#[deprecated(note = "Please use `self != (&addr).try_into()?` instead.")]
 	pub fn is_eq_addr(&self, addr: &Addr, api: &dyn Api) -> Result<bool, StdError> {
 		Ok(self.as_slice() == api.addr_canonicalize(addr.as_str())?.as_slice())
 	}
