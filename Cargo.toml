@@ -5,20 +5,17 @@ members = [
 ]
 
 [workspace.dependencies]
-cw-utils = "1"
-cw2 = "1"
-cw20 = "1"
-cosmwasm-std = "1"
-cosmwasm-schema = "1"
+cw-utils = "1.0.3"
+cw2 = "1.1.2"
+cw20 = "1.1.2"
+cosmwasm-std = "1.5.5"
+cosmwasm-schema = "1.5.5"
 schemars = "0.8"
-sei-cosmwasm = "0.4"
+sei-cosmwasm = "0.4.15"
 thiserror = "1"
 borsh = { version = "1", features = ["derive"] }
-bytemuck = { version = "1", features = ["derive", "min_const_generics"] }
+bytemuck = { version = "1.15", features = ["derive", "min_const_generics"] }
 serde = "1"
-bincode = "1"
-bpaf = { version = "0.9", features = ["derive"] }
-which = "5"
 serde_json = { version = "1" }
 convert_case = "0.6"
 itertools = "0.12"

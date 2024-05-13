@@ -1,7 +1,14 @@
 use bytemuck::{Pod, Zeroable};
 use cosmwasm_std::{StdError, StdResult};
 
-use super::{map::StoredMap, vec::IndexedStoredItemIter, MaybeMutableStorage, SerializableItem};
+use crate::impl_serializable_as_ref;
+
+use super::{
+	base::{storage_read, storage_write_item},
+	map::StoredMap,
+	vec::IndexedStoredItemIter,
+	OZeroCopy, SerializableItem,
+};
 
 #[derive(Debug, Default, Clone, Copy, Zeroable, Pod)]
 #[repr(C)]
@@ -9,17 +16,16 @@ pub struct QueueEnds {
 	pub front: u32,
 	pub back: u32,
 }
+impl_serializable_as_ref!(QueueEnds);
 
-pub struct StoredVecDeque<'exec, V: SerializableItem> {
+pub struct StoredVecDeque<V: SerializableItem> {
 	namespace: &'static [u8],
-	storage: MaybeMutableStorage<'exec>,
-	map: StoredMap<'exec, u32, V>,
+	map: StoredMap<u32, V>,
 	ends: QueueEnds,
 }
-impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
-	pub fn new(namespace: &'static [u8], storage: MaybeMutableStorage<'exec>) -> Self {
-		let ends = storage
-			.get(&namespace)
+impl<V: SerializableItem> StoredVecDeque<V> {
+	pub fn new(namespace: &'static [u8]) -> Self {
+		let ends = storage_read(namespace)
 			.map(|data| {
 				if data.len() == 4 {
 					// Vec that has been "upgraded" to a queue
@@ -28,32 +34,19 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 						back: u32::from_le_bytes(data.try_into().unwrap()),
 					};
 				}
-				if data.len() < std::mem::size_of::<QueueEnds>() {
-					return QueueEnds::default();
-				}
-				// Doing this way because I don't trust the alignment of the data returned from storage
-				QueueEnds {
-					front: u32::from_le_bytes(data[0..4].try_into().unwrap()),
-					back: u32::from_le_bytes(data[4..].try_into().unwrap()),
-				}
+				QueueEnds::deserialize_to_owned(&data).unwrap_or_default()
 			})
 			.unwrap_or_default();
 		Self {
 			namespace,
-			storage: storage.clone(),
-			map: StoredMap::new(namespace, storage),
+			map: StoredMap::new(namespace),
 			ends,
 		}
 	}
 	#[inline]
 	fn set_ends(&mut self, value: QueueEnds) {
 		self.ends = value;
-		#[cfg(target_endian = "big")]
-		let value = QueueEnds {
-			front: value.front.swap_bytes(),
-			back: value.back.swap_bytes(),
-		};
-		self.storage.set(self.namespace, &bytemuck::bytes_of(&value))
+		storage_write_item(self.namespace, &value).expect("2 u32's should never fail to serialize");
 	}
 	#[inline]
 	pub fn ends(&self) -> QueueEnds {
@@ -70,7 +63,7 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 			u32::MAX - (ends.front - ends.back)
 		}
 	}
-	pub fn get(&self, index: u32) -> StdResult<Option<V>> {
+	pub fn get(&self, index: u32) -> StdResult<Option<OZeroCopy<V>>> {
 		if index >= self.len() {
 			return Err(StdError::not_found("StoredVecDeque out of bounds"));
 		}
@@ -102,9 +95,9 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 	pub fn capacity(&self) -> u32 {
 		u32::MAX
 	}
-	pub fn iter(&self) -> IndexedStoredItemIter<'exec, V> {
+	pub fn iter(&self) -> IndexedStoredItemIter<V> {
 		let ends = self.ends();
-		IndexedStoredItemIter::new(self.namespace, self.storage.clone(), ends.front, ends.back)
+		IndexedStoredItemIter::new(self.namespace, ends.front, ends.back)
 	}
 	#[inline]
 	pub fn is_empty(&self) -> bool {
@@ -119,7 +112,7 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 		}
 		self.set_ends(QueueEnds { front: 0, back: 0 });
 	}
-	pub fn get_back(&self) -> StdResult<Option<V>> {
+	pub fn get_back(&self) -> StdResult<Option<OZeroCopy<V>>> {
 		if self.is_empty() {
 			return Ok(None);
 		}
@@ -131,7 +124,7 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 		}
 		self.map.set(&self.ends.back.wrapping_sub(1), value)
 	}
-	pub fn pop_back(&mut self) -> StdResult<Option<V>> {
+	pub fn pop_back(&mut self) -> StdResult<Option<OZeroCopy<V>>> {
 		if self.is_empty() {
 			return Ok(None);
 		}
@@ -152,7 +145,7 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 		self.set_ends(ends);
 		Ok(())
 	}
-	pub fn get_front(&self) -> StdResult<Option<V>> {
+	pub fn get_front(&self) -> StdResult<Option<OZeroCopy<V>>> {
 		if self.is_empty() {
 			return Ok(None);
 		}
@@ -164,7 +157,7 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 		}
 		self.map.set(&self.ends.front, value)
 	}
-	pub fn pop_front(&mut self) -> StdResult<Option<V>> {
+	pub fn pop_front(&mut self) -> StdResult<Option<OZeroCopy<V>>> {
 		if self.is_empty() {
 			return Ok(None);
 		}
@@ -187,19 +180,19 @@ impl<'exec, V: SerializableItem> StoredVecDeque<'exec, V> {
 	}
 }
 
-impl<'exec, V: SerializableItem> IntoIterator for StoredVecDeque<'exec, V> {
-	type Item = Result<V, StdError>;
-	type IntoIter = IndexedStoredItemIter<'exec, V>;
+impl<V: SerializableItem> IntoIterator for StoredVecDeque<V> {
+	type Item = Result<OZeroCopy<V>, StdError>;
+	type IntoIter = IndexedStoredItemIter<V>;
 	fn into_iter(self) -> Self::IntoIter {
 		let ends = self.ends();
-		IndexedStoredItemIter::new(self.namespace, self.storage, ends.front, ends.back)
+		IndexedStoredItemIter::new(self.namespace, ends.front, ends.back)
 	}
 }
-impl<'exec, V: SerializableItem> IntoIterator for &StoredVecDeque<'exec, V> {
-	type Item = Result<V, StdError>;
-	type IntoIter = IndexedStoredItemIter<'exec, V>;
+impl<V: SerializableItem> IntoIterator for &StoredVecDeque<V> {
+	type Item = Result<OZeroCopy<V>, StdError>;
+	type IntoIter = IndexedStoredItemIter<V>;
 	fn into_iter(self) -> Self::IntoIter {
 		let ends = self.ends();
-		IndexedStoredItemIter::new(self.namespace, self.storage.clone(), ends.front, ends.back)
+		IndexedStoredItemIter::new(self.namespace, ends.front, ends.back)
 	}
 }

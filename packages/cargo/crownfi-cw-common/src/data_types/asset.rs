@@ -6,7 +6,7 @@ use cosmwasm_schema::{
 	schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema},
 };
 use cosmwasm_std::{
-	to_json_binary, Addr, Api, BankMsg, Coin, CosmosMsg, CustomQuery, QuerierWrapper, StdError, Uint128, WasmMsg,
+	to_json_binary, Addr, BankMsg, Coin, CosmosMsg, CustomQuery, QuerierWrapper, StdError, Uint128, WasmMsg,
 };
 use cw20::{BalanceResponse as Cw20BalanceResponse, Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
 use sei_cosmwasm::SeiMsg;
@@ -22,25 +22,12 @@ pub enum FungibleAssetKind {
 }
 impl_serializable_borsh!(FungibleAssetKind);
 
-impl FungibleAssetKind {
-	#[deprecated = "use .try_into() instead. The use of the Api reference is unnecessary."]
-	pub fn try_into_stringable(self, api: &dyn Api) -> Result<FungibleAssetKindString, StdError> {
-		match self {
-			FungibleAssetKind::Native(denom) => Ok(FungibleAssetKindString::Native(denom)),
-			FungibleAssetKind::CW20(addr) => Ok(FungibleAssetKindString::CW20(
-				addr.into_addr_using_api(api)?.into_string(),
-			)),
-		}
-	}
-}
 impl TryFrom<FungibleAssetKindString> for FungibleAssetKind {
 	type Error = StdError;
 	fn try_from(value: FungibleAssetKindString) -> Result<Self, Self::Error> {
 		match value {
 			FungibleAssetKindString::Native(denom) => Ok(FungibleAssetKind::Native(denom)),
-			FungibleAssetKindString::CW20(addr) => Ok(FungibleAssetKind::CW20(
-				Addr::unchecked(addr).try_into()?
-			)),
+			FungibleAssetKindString::CW20(addr) => Ok(FungibleAssetKind::CW20(Addr::unchecked(addr).try_into()?)),
 		}
 	}
 }
@@ -51,16 +38,6 @@ pub enum FungibleAssetKindString {
 	CW20(String),
 }
 impl FungibleAssetKindString {
-	#[deprecated = "use .try_into() instead. The use of the Api reference is unnecessary."]
-	pub fn try_into_asset_kind(self, api: &dyn Api) -> Result<FungibleAssetKind, StdError> {
-		match self {
-			FungibleAssetKindString::Native(denom) => Ok(FungibleAssetKind::Native(denom)),
-			FungibleAssetKindString::CW20(addr) => Ok(FungibleAssetKind::CW20(SeiCanonicalAddr::from_addr_using_api(
-				&Addr::unchecked(addr),
-				api,
-			)?)),
-		}
-	}
 	pub fn into_asset<A: Into<Uint128>>(self, amount: A) -> FungibleAsset {
 		match self {
 			FungibleAssetKindString::Native(denom) => FungibleAsset::Native(Coin {
@@ -91,9 +68,7 @@ impl TryFrom<FungibleAssetKind> for FungibleAssetKindString {
 	fn try_from(value: FungibleAssetKind) -> Result<Self, Self::Error> {
 		match value {
 			FungibleAssetKind::Native(denom) => Ok(FungibleAssetKindString::Native(denom)),
-			FungibleAssetKind::CW20(addr) => Ok(FungibleAssetKindString::CW20(
-				Addr::try_from(addr)?.into_string(),
-			)),
+			FungibleAssetKind::CW20(addr) => Ok(FungibleAssetKindString::CW20(Addr::try_from(addr)?.into_string())),
 		}
 	}
 }

@@ -15,13 +15,13 @@ pub struct OwnedRegion {
 	/// The number of bytes available in this region
 	capacity: usize,
 	/// The number of bytes used in this region
-	length: usize
+	length: usize,
 }
 assert_eq_size!(OwnedRegion, (usize, usize, usize));
 
 impl OwnedRegion {
 	/// Creates an OwnedRegion from a ptr. Returns none if the ptr or the offset it references is null.
-	/// 
+	///
 	/// # Safety
 	/// You may ***only*** use this on regions that were created by the runtime itself, and are expected to be later
 	/// freed by user code. (i.e. areas where `consume_region`  was used in the original implementation) otherwise
@@ -34,11 +34,7 @@ impl OwnedRegion {
 		if region.offset.is_null() {
 			return None;
 		}
-		Some(
-			OwnedRegion {
-				..*region
-			}
-		)
+		Some(OwnedRegion { ..*region })
 	}
 }
 impl From<Vec<u8>> for OwnedRegion {
@@ -50,47 +46,53 @@ impl From<Vec<u8>> for OwnedRegion {
 		Self {
 			offset,
 			capacity,
-			length
+			length,
 		}
 	}
 }
 impl From<OwnedRegion> for Vec<u8> {
 	fn from(value: OwnedRegion) -> Self {
-		// SAFTY: It is assumed that the only way to create an OwnedRegion is via the From<Vec<u8>> trait.
-		unsafe {
-			Vec::from_raw_parts(value.offset, value.length, value.capacity)
-		}
+		// SAFTY: It is assumed that this OwnedRegion was either created by the runtime or by using From<Vec<u8>>
+		unsafe { Vec::from_raw_parts(value.offset, value.length, value.capacity) }
 	}
 }
 impl Drop for OwnedRegion {
 	fn drop(&mut self) {
 		// Run Vec's destructor
 		drop(
-			// SAFTY: It is assumed that the only way to create an OwnedRegion is via the From<Vec<u8>> trait.
-			unsafe {
-				Vec::from_raw_parts(self.offset, self.length, self.capacity)
-			}
+			// SAFTY: It is assumed that this OwnedRegion was either created by the runtime or by using From<Vec<u8>>
+			unsafe { Vec::from_raw_parts(self.offset, self.length, self.capacity) },
 		)
 	}
 }
 
 /// Allows you to pass a good ol' `&[u8]` to the cosmwasm API.
 #[repr(C)]
-pub struct ConstReigon<'a> {
+pub struct ConstRegion<'a> {
 	_lifetime: PhantomData<&'a ()>, // Representing the lifetime of the &[u8] this was constructed from
 	offset: *const u8,
 	capacity: usize,
-	length: usize
+	length: usize,
 }
-assert_eq_size!(ConstReigon, (usize, usize, usize));
+assert_eq_size!(ConstRegion, (usize, usize, usize));
 
-impl<'a> ConstReigon<'a> {
+impl<'a> ConstRegion<'a> {
 	pub fn new(bytes: &'a [u8]) -> Self {
 		Self {
 			_lifetime: PhantomData,
 			offset: bytes.as_ptr(),
 			capacity: bytes.len(),
-			length: bytes.len()
+			length: bytes.len(),
 		}
 	}
+}
+
+pub fn split_off_length_suffixed_bytes(bytes: &mut Vec<u8>) -> Vec<u8> {
+	let result_len = u32::from_be_bytes(
+		bytes[bytes.len().saturating_sub(4)..]
+			.try_into()
+			.expect("Couldn't read length suffix"),
+	);
+	bytes.truncate(bytes.len() - 4);
+	bytes.split_off(bytes.len().saturating_sub(result_len as usize))
 }

@@ -1,9 +1,9 @@
-use std::fmt::Display;
 #[cfg(not(target_arch = "wasm32"))]
 use bech32::{FromBase32, ToBase32};
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{Pod, Zeroable};
 use cosmwasm_std::{Addr, Api, CanonicalAddr, StdError};
+use std::fmt::Display;
 
 use crate::{impl_serializable_as_ref, storage::SerializableItem};
 
@@ -13,15 +13,6 @@ pub struct SeiCanonicalAddr {
 	bytes: [u8; 32],
 }
 impl SeiCanonicalAddr {
-	#[deprecated = "use .try_from() instead. The use of the Api reference is unnecessary."]
-	pub fn from_addr_using_api(addr: &Addr, api: &dyn Api) -> Result<Self, StdError> {
-		let canon_addr = api.addr_canonicalize(addr.as_str())?;
-		SeiCanonicalAddr::try_from(&canon_addr)
-	}
-	#[deprecated = "use .try_into() instead. The use of the Api reference is unnecessary."]
-	pub fn into_addr_using_api(&self, api: &dyn Api) -> Result<Addr, StdError> {
-		api.addr_humanize(&self.into())
-	}
 	/// basically, is this (probably) an address associated with a pubkey
 	#[inline]
 	pub fn is_externally_owned_address(&self) -> bool {
