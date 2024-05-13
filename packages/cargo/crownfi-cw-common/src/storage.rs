@@ -3,6 +3,7 @@ use bytemuck::{Pod, Zeroable};
 use cosmwasm_std::{StdError, Storage};
 use std::{
 	cell::{Ref, RefCell},
+	default,
 	num::NonZeroUsize,
 	ops::{Deref, DerefMut},
 	rc::Rc,
@@ -55,6 +56,14 @@ enum OZeroCopyType<T: Sized + SerializableItem> {
 	Copy(T),
 	ZeroCopy(Vec<u8>),
 }
+impl<T> Default for OZeroCopyType<T>
+where
+	T: Default + Sized + SerializableItem,
+{
+	fn default() -> Self {
+		OZeroCopyType::Copy(T::default())
+	}
+}
 
 /// Opportunistically zero-copy-deserialized object.
 ///
@@ -63,7 +72,7 @@ enum OZeroCopyType<T: Sized + SerializableItem> {
 /// This object exists because while ideally we would convert a Vec<u8> into a Box<T>, the issue is that one of Rust's
 /// guarantees is that the alignment of a block of data allocated on the heap does not change, or rather, calls to
 /// `alloc` and `dealloc` will be provided the same size and layout.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct OZeroCopy<T: Sized + SerializableItem>(OZeroCopyType<T>);
 impl<T: Sized + SerializableItem> OZeroCopy<T> {
 	pub fn new(bytes: Vec<u8>) -> Result<Self, StdError> {
