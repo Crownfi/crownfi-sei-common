@@ -2,6 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use cosmwasm_std::{Api, CustomQuery, Deps, DepsMut, Empty, Env, QuerierWrapper, Storage};
 
+#[derive(Clone)]
 pub struct MinimalEnvInfo<'exec, Q: CustomQuery = Empty> {
 	pub querier: Rc<QuerierWrapper<'exec, Q>>,
 	pub env: Rc<Env>,
