@@ -2,7 +2,26 @@ use std::{cell::RefCell, rc::Rc};
 
 use cosmwasm_std::{Api, CustomQuery, Deps, DepsMut, Empty, Env, QuerierWrapper, Storage};
 
-// common immutable-storage trait?
+pub struct MinimalEnvInfo<'exec, Q: CustomQuery = Empty> {
+	pub querier: Rc<QuerierWrapper<'exec, Q>>,
+	pub env: Rc<Env>,
+}
+impl<'exec, Q: CustomQuery> MinimalEnvInfo<'exec, Q> {
+	pub fn from_deps(deps: Deps<'exec, Q>, env: Env) -> Self {
+		MinimalEnvInfo {
+			querier: Rc::new(deps.querier),
+			env: Rc::new(env)
+		}
+	}
+	pub fn from_deps_mut(deps: DepsMut<'exec, Q>, env: Env) -> Self {
+		MinimalEnvInfo {
+			querier: Rc::new(deps.querier),
+			env: Rc::new(env)
+		}
+	}
+}
+
+#[deprecated(note = "please use `MinimalEnvInfo` instead. \"api\" and \"storage\" has been superseded by _not_ ")]
 #[derive(Clone)]
 pub struct ClonableEnvInfo<'exec, Q: CustomQuery = Empty> {
 	pub storage: Rc<&'exec dyn Storage>,
@@ -10,6 +29,7 @@ pub struct ClonableEnvInfo<'exec, Q: CustomQuery = Empty> {
 	pub querier: Rc<QuerierWrapper<'exec, Q>>,
 	pub env: Rc<Env>,
 }
+#[allow(deprecated)]
 impl<'exec, Q: CustomQuery> ClonableEnvInfo<'exec, Q> {
 	pub fn new(deps: Deps<'exec, Q>, env: Env) -> Self {
 		ClonableEnvInfo {
@@ -21,7 +41,7 @@ impl<'exec, Q: CustomQuery> ClonableEnvInfo<'exec, Q> {
 	}
 }
 
-/// Wraps Env and Deps
+#[deprecated(note = "please use `deserialize_to_owned` instead")]
 #[derive(Clone)]
 pub struct ClonableEnvInfoMut<'exec, Q: CustomQuery = Empty> {
 	pub storage: Rc<RefCell<&'exec mut dyn Storage>>,
@@ -29,7 +49,7 @@ pub struct ClonableEnvInfoMut<'exec, Q: CustomQuery = Empty> {
 	pub querier: Rc<QuerierWrapper<'exec, Q>>,
 	pub env: Rc<Env>,
 }
-
+#[allow(deprecated)]
 impl<'exec, Q: CustomQuery> ClonableEnvInfoMut<'exec, Q> {
 	pub fn new(deps: DepsMut<'exec, Q>, env: Env) -> Self {
 		ClonableEnvInfoMut {

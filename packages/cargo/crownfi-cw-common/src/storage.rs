@@ -3,7 +3,6 @@ use bytemuck::{Pod, Zeroable};
 use cosmwasm_std::{StdError, Storage};
 use std::{
 	cell::{Ref, RefCell},
-	default,
 	num::NonZeroUsize,
 	ops::{Deref, DerefMut},
 	rc::Rc,
