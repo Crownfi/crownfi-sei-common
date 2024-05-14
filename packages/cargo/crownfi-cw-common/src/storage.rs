@@ -260,7 +260,7 @@ impl StorageIteratorCommon {
 		let (data_key, data_value) = storage_iter_next_pair(ascending_id)?;
 		let data_key: Rc<[u8]> = data_key.into();
 		if let Some(descending_key) = &self.descending_key {
-			if *descending_key >= data_key {
+			if data_key >= *descending_key {
 				return None;
 			}
 		}
@@ -271,7 +271,7 @@ impl StorageIteratorCommon {
 		let ascending_id = self.ascending_id();
 		let data_key: Rc<[u8]> = storage_iter_next_key(ascending_id)?.into();
 		if let Some(descending_key) = &self.descending_key {
-			if *descending_key >= data_key {
+			if data_key >= *descending_key {
 				return None;
 			}
 		}
@@ -307,7 +307,7 @@ impl StorageIteratorCommon {
 		let (data_key, data_value) = storage_iter_next_pair(descending_id)?;
 		let data_key: Rc<[u8]> = data_key.into();
 		if let Some(ascending_key) = &self.ascending_key {
-			if *ascending_key < data_key {
+			if data_key < *ascending_key {
 				return None;
 			}
 			// The interator had both next() and next_back() called.
@@ -322,7 +322,7 @@ impl StorageIteratorCommon {
 		let descending_id = self.descending_id();
 		let data_key: Rc<[u8]> = storage_iter_next_key(descending_id)?.into();
 		if let Some(ascending_key) = &self.ascending_key {
-			if *ascending_key < data_key {
+			if data_key < *ascending_key {
 				return None;
 			}
 			// The interator had both next() and next_back() called.
