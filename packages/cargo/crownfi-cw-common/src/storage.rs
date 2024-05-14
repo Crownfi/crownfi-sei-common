@@ -259,8 +259,11 @@ impl StorageIteratorCommon {
 		let ascending_id = self.ascending_id();
 		let (data_key, data_value) = storage_iter_next_pair(ascending_id)?;
 		let data_key: Rc<[u8]> = data_key.into();
-		if let Some(descending_key) = &self.descending_key {
-			if data_key >= *descending_key {
+		if self.descending_id.is_some() {
+			if
+				data_key >= *self.descending_key.as_ref()
+					.expect("descending_key should be defined if descending_id is")
+			{
 				return None;
 			}
 		}
@@ -270,8 +273,11 @@ impl StorageIteratorCommon {
 	fn next_key(&mut self) -> Option<Rc<[u8]>> {
 		let ascending_id = self.ascending_id();
 		let data_key: Rc<[u8]> = storage_iter_next_key(ascending_id)?.into();
-		if let Some(descending_key) = &self.descending_key {
-			if data_key >= *descending_key {
+		if self.descending_id.is_some() {
+			if
+				data_key >= *self.descending_key.as_ref()
+					.expect("descending_key should be defined if descending_id is")
+			{
 				return None;
 			}
 		}
@@ -306,31 +312,29 @@ impl StorageIteratorCommon {
 		let descending_id = self.descending_id();
 		let (data_key, data_value) = storage_iter_next_pair(descending_id)?;
 		let data_key: Rc<[u8]> = data_key.into();
-		if let Some(ascending_key) = &self.ascending_key {
-			if data_key < *ascending_key {
-				return None;
-			}
-			// The interator had both next() and next_back() called.
-			if self.ascending_id.is_some() && *ascending_key == data_key {
+		if self.ascending_id.is_some() {
+			if
+				data_key <= *self.ascending_key.as_ref()
+					.expect("ascending_key should be defined if ascending_id is")
+			{
 				return None;
 			}
 		}
-		self.ascending_key = Some(data_key.clone());
+		self.descending_key = Some(data_key.clone());
 		Some((data_key, data_value))
 	}
 	fn next_key_back(&mut self) -> Option<Rc<[u8]>> {
 		let descending_id = self.descending_id();
 		let data_key: Rc<[u8]> = storage_iter_next_key(descending_id)?.into();
-		if let Some(ascending_key) = &self.ascending_key {
-			if data_key < *ascending_key {
-				return None;
-			}
-			// The interator had both next() and next_back() called.
-			if *ascending_key == data_key && self.ascending_id.is_some() {
+		if self.ascending_id.is_some() {
+			if
+				data_key <= *self.ascending_key.as_ref()
+					.expect("ascending_key should be defined if ascending_id is")
+			{
 				return None;
 			}
 		}
-		self.ascending_key = Some(data_key.clone());
+		self.descending_key = Some(data_key.clone());
 		Some(data_key)
 	}
 	fn next_value_back(&mut self) -> Option<Vec<u8>> {
