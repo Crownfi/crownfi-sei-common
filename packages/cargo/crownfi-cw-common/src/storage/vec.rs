@@ -326,9 +326,9 @@ impl<'exec, V: SerializableItem> ExactSizeIterator for IndexedStoredItemIter<V> 
 
 #[cfg(test)]
 mod tests {
-	use std::{cell::RefCell, rc::Rc};
+	use cosmwasm_std::MemoryStorage;
 
-	use cosmwasm_std::{testing::MockStorage, Storage};
+	use crate::storage::base::set_global_storage;
 
 	use super::*;
 
@@ -338,10 +338,8 @@ mod tests {
 
 	#[test]
 	fn get_after_dirty_clear() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		set_global_storage(Box::new(MemoryStorage::new()));
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 
 		vec.extend([1, 2, 3].into_iter())?;
 		vec.clear(true);

@@ -60,7 +60,7 @@ impl<V: SerializableItem> StoredVecDeque<V> {
 		if ends.back >= ends.front {
 			ends.back - ends.front
 		} else {
-			u32::MAX - (ends.front - ends.back)
+			u32::MAX - (ends.front - ends.back) + 1
 		}
 	}
 	pub fn get(&self, index: u32) -> StdResult<Option<OZeroCopy<V>>> {
@@ -200,9 +200,9 @@ impl<V: SerializableItem> IntoIterator for &StoredVecDeque<V> {
 
 #[cfg(test)]
 mod tests {
-	use std::{cell::RefCell, rc::Rc};
+	use cosmwasm_std::MemoryStorage;
 
-	use cosmwasm_std::{testing::MockStorage, Storage};
+	use crate::storage::base::set_global_storage;
 
 	use super::*;
 
@@ -210,11 +210,10 @@ mod tests {
 
 	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-	fn get() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+	#[test]
+	fn push_front_get_pop() -> TestingResult {
+		set_global_storage(Box::new(MemoryStorage::new()));
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
 
 		queue.push_front(&1)?;
 		queue.push_front(&2)?;
@@ -224,6 +223,33 @@ mod tests {
 
 		assert_eq!(queue.len(), 3);
 		assert_eq!(val, Ok(None));
+		assert_eq!(queue.pop_back()?.map(|ozc| {ozc.into_inner()}), Some(1));
+		assert_eq!(queue.len(), 2);
+
+		assert_eq!(queue.pop_front()?.map(|ozc| {ozc.into_inner()}), Some(3));
+		assert_eq!(queue.len(), 1);
+		assert_eq!(queue.get(0)?.map(|ozc| {ozc.into_inner()}), Some(2));
+		Ok(())
+	}
+	#[test]
+	fn push_back_get_pop() -> TestingResult {
+		set_global_storage(Box::new(MemoryStorage::new()));
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
+
+		queue.push_back(&1)?;
+		queue.push_back(&2)?;
+		queue.push_back(&3)?;
+
+		let val = queue.get(3);
+
+		assert_eq!(queue.len(), 3);
+		assert_eq!(val, Ok(None));
+		assert_eq!(queue.pop_front()?.map(|ozc| {ozc.into_inner()}), Some(1));
+		assert_eq!(queue.len(), 2);
+
+		assert_eq!(queue.pop_back()?.map(|ozc| {ozc.into_inner()}), Some(3));
+		assert_eq!(queue.len(), 1);
+		assert_eq!(queue.get(0)?.map(|ozc| {ozc.into_inner()}), Some(2));
 
 		Ok(())
 	}

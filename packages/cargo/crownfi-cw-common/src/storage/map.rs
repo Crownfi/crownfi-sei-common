@@ -166,7 +166,7 @@ impl<'a, K: SerializableItem, V: SerializableItem> Iterator for StoredMapIter<K,
 }
 impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for StoredMapIter<K, V> {
 	fn next_back(&mut self) -> Option<Self::Item> {
-		self.inner_iter.next().and_then(|(key_bytes, value_bytes)| {
+		self.inner_iter.next_back().and_then(|(key_bytes, value_bytes)| {
 			Some((
 				K::deserialize_to_owned(&key_bytes[self.key_slicing..]).ok()?,
 				OZeroCopy::new(value_bytes).ok()?,
@@ -210,17 +210,13 @@ mod tests {
 
 		let mut stored_map_iter = stored_map.iter().unwrap();
 		assert_eq!(
-			stored_map
-				.iter()
-				.unwrap()
+			stored_map_iter
 				.next()
 				.map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key1".into(), "val1".into()))
 		);
 		assert_eq!(
-			stored_map
-				.iter()
-				.unwrap()
+			stored_map_iter
 				.next()
 				.map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key2".into(), "val2".into()))
@@ -231,25 +227,19 @@ mod tests {
 
 		let mut stored_map_iter = stored_map.iter().unwrap().rev();
 		assert_eq!(
-			stored_map
-				.iter()
-				.unwrap()
+			stored_map_iter
 				.next()
 				.map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key3".into(), "val3".into()))
 		);
 		assert_eq!(
-			stored_map
-				.iter()
-				.unwrap()
+			stored_map_iter
 				.next()
 				.map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key2".into(), "val2".into()))
 		);
 		assert_eq!(
-			stored_map
-				.iter()
-				.unwrap()
+			stored_map_iter
 				.next()
 				.map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key1".into(), "val1".into()))
@@ -258,39 +248,49 @@ mod tests {
 
 		let mut stored_map_iter = stored_map.iter_range(Some("key".into()), Some("key3".into())).unwrap();
 		assert_eq!(
-			stored_map
-				.iter()
-				.unwrap()
+			stored_map_iter
 				.next()
 				.map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key1".into(), "val1".into()))
 		);
 		assert_eq!(
-			stored_map
-				.iter()
-				.unwrap()
+			stored_map_iter
 				.next()
 				.map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key2".into(), "val2".into()))
 		);
 		assert_eq!(stored_map_iter.next(), None);
 
-		let mut stored_map_iter = stored_map.iter_range(Some("key1".into()), None).unwrap();
+
+		// Note: when it comes to iter_range, the "start" position is inclusive, while the "end" is exclusive
+		let mut stored_map_iter = stored_map.iter_range(Some("key2".into()), None).unwrap();
 		assert_eq!(
-			stored_map
-				.iter()
-				.unwrap()
+			stored_map_iter
 				.next()
 				.map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key2".into(), "val2".into()))
 		);
 		assert_eq!(
-			stored_map
-				.iter()
-				.unwrap()
+			stored_map_iter
 				.next()
 				.map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key3".into(), "val3".into()))
+		);
+		assert_eq!(stored_map_iter.next(), None);
+
+		// Note: when it comes to iter_range, the "start" position is inclusive, while the "end" is exclusive
+		let mut stored_map_iter = stored_map.iter_range(Some("key1".into()), Some("key3".into())).unwrap().rev();
+		assert_eq!(
+			stored_map_iter
+				.next()
+				.map(|(key, value)| { (key, value.into_inner()) }),
+			Some(("key2".into(), "val2".into()))
+		);
+		assert_eq!(
+			stored_map_iter
+				.next()
+				.map(|(key, value)| { (key, value.into_inner()) }),
+			Some(("key1".into(), "val1".into()))
 		);
 		assert_eq!(stored_map_iter.next(), None);
 	}
