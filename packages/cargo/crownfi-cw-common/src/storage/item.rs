@@ -1,4 +1,4 @@
-use super::base::{storage_read_item, storage_write, storage_write_item};
+use super::base::{storage_read_item, storage_remove, storage_write, storage_write_item};
 use super::{OZeroCopy, SerializableItem};
 use cosmwasm_std::{StdError, Storage};
 use std::ops::{Deref, DerefMut};
@@ -39,8 +39,8 @@ pub trait StoredItem: SerializableItem + Sized {
 		storage_write_item(Self::namespace(), self)
 	}
 
-	fn remove(storage: &mut dyn Storage) {
-		storage.remove(Self::namespace())
+	fn remove() {
+		storage_remove(Self::namespace())
 	}
 
 	fn load_with_autosave() -> Result<Option<AutosavingStoredItem<Self>>, StdError> {

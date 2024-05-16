@@ -260,8 +260,10 @@ impl StorageIteratorCommon {
 		let (data_key, data_value) = storage_iter_next_pair(ascending_id)?;
 		let data_key: Rc<[u8]> = data_key.into();
 		if self.descending_id.is_some() {
-			if
-				data_key >= *self.descending_key.as_ref()
+			if data_key
+				>= *self
+					.descending_key
+					.as_ref()
 					.expect("descending_key should be defined if descending_id is")
 			{
 				return None;
@@ -274,8 +276,10 @@ impl StorageIteratorCommon {
 		let ascending_id = self.ascending_id();
 		let data_key: Rc<[u8]> = storage_iter_next_key(ascending_id)?.into();
 		if self.descending_id.is_some() {
-			if
-				data_key >= *self.descending_key.as_ref()
+			if data_key
+				>= *self
+					.descending_key
+					.as_ref()
 					.expect("descending_key should be defined if descending_id is")
 			{
 				return None;
@@ -313,8 +317,10 @@ impl StorageIteratorCommon {
 		let (data_key, data_value) = storage_iter_next_pair(descending_id)?;
 		let data_key: Rc<[u8]> = data_key.into();
 		if self.ascending_id.is_some() {
-			if
-				data_key <= *self.ascending_key.as_ref()
+			if data_key
+				<= *self
+					.ascending_key
+					.as_ref()
 					.expect("ascending_key should be defined if ascending_id is")
 			{
 				return None;
@@ -327,8 +333,10 @@ impl StorageIteratorCommon {
 		let descending_id = self.descending_id();
 		let data_key: Rc<[u8]> = storage_iter_next_key(descending_id)?.into();
 		if self.ascending_id.is_some() {
-			if
-				data_key <= *self.ascending_key.as_ref()
+			if data_key
+				<= *self
+					.ascending_key
+					.as_ref()
 					.expect("ascending_key should be defined if ascending_id is")
 			{
 				return None;

@@ -210,15 +210,11 @@ mod tests {
 
 		let mut stored_map_iter = stored_map.iter().unwrap();
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key1".into(), "val1".into()))
 		);
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key2".into(), "val2".into()))
 		);
 		assert!(stored_map_iter.next().is_none());
@@ -227,69 +223,53 @@ mod tests {
 
 		let mut stored_map_iter = stored_map.iter().unwrap().rev();
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key3".into(), "val3".into()))
 		);
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key2".into(), "val2".into()))
 		);
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key1".into(), "val1".into()))
 		);
 		assert_eq!(stored_map_iter.next(), None);
 
 		let mut stored_map_iter = stored_map.iter_range(Some("key".into()), Some("key3".into())).unwrap();
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key1".into(), "val1".into()))
 		);
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key2".into(), "val2".into()))
 		);
 		assert_eq!(stored_map_iter.next(), None);
 
-
 		// Note: when it comes to iter_range, the "start" position is inclusive, while the "end" is exclusive
 		let mut stored_map_iter = stored_map.iter_range(Some("key2".into()), None).unwrap();
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key2".into(), "val2".into()))
 		);
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key3".into(), "val3".into()))
 		);
 		assert_eq!(stored_map_iter.next(), None);
 
 		// Note: when it comes to iter_range, the "start" position is inclusive, while the "end" is exclusive
-		let mut stored_map_iter = stored_map.iter_range(Some("key1".into()), Some("key3".into())).unwrap().rev();
+		let mut stored_map_iter = stored_map
+			.iter_range(Some("key1".into()), Some("key3".into()))
+			.unwrap()
+			.rev();
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key2".into(), "val2".into()))
 		);
 		assert_eq!(
-			stored_map_iter
-				.next()
-				.map(|(key, value)| { (key, value.into_inner()) }),
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key1".into(), "val1".into()))
 		);
 		assert_eq!(stored_map_iter.next(), None);

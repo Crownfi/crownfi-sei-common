@@ -223,12 +223,12 @@ mod tests {
 
 		assert_eq!(queue.len(), 3);
 		assert_eq!(val, Ok(None));
-		assert_eq!(queue.pop_back()?.map(|ozc| {ozc.into_inner()}), Some(1));
+		assert_eq!(queue.pop_back()?.map(|ozc| { ozc.into_inner() }), Some(1));
 		assert_eq!(queue.len(), 2);
 
-		assert_eq!(queue.pop_front()?.map(|ozc| {ozc.into_inner()}), Some(3));
+		assert_eq!(queue.pop_front()?.map(|ozc| { ozc.into_inner() }), Some(3));
 		assert_eq!(queue.len(), 1);
-		assert_eq!(queue.get(0)?.map(|ozc| {ozc.into_inner()}), Some(2));
+		assert_eq!(queue.get(0)?.map(|ozc| { ozc.into_inner() }), Some(2));
 		Ok(())
 	}
 	#[test]
@@ -244,12 +244,12 @@ mod tests {
 
 		assert_eq!(queue.len(), 3);
 		assert_eq!(val, Ok(None));
-		assert_eq!(queue.pop_front()?.map(|ozc| {ozc.into_inner()}), Some(1));
+		assert_eq!(queue.pop_front()?.map(|ozc| { ozc.into_inner() }), Some(1));
 		assert_eq!(queue.len(), 2);
 
-		assert_eq!(queue.pop_back()?.map(|ozc| {ozc.into_inner()}), Some(3));
+		assert_eq!(queue.pop_back()?.map(|ozc| { ozc.into_inner() }), Some(3));
 		assert_eq!(queue.len(), 1);
-		assert_eq!(queue.get(0)?.map(|ozc| {ozc.into_inner()}), Some(2));
+		assert_eq!(queue.get(0)?.map(|ozc| { ozc.into_inner() }), Some(2));
 
 		Ok(())
 	}
