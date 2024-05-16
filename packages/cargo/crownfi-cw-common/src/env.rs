@@ -22,7 +22,7 @@ impl<'exec, Q: CustomQuery> MinimalEnvInfo<'exec, Q> {
 	}
 }
 
-#[deprecated(note = "please use `MinimalEnvInfo` instead. \"api\" and \"storage\" has been superseded by _not_ ")]
+#[deprecated(note = "please use `MinimalEnvInfo` instead. \"api\" and \"storage\" has been superseded by _not_ using it.")]
 #[derive(Clone)]
 pub struct ClonableEnvInfo<'exec, Q: CustomQuery = Empty> {
 	pub storage: Rc<&'exec dyn Storage>,
@@ -42,7 +42,7 @@ impl<'exec, Q: CustomQuery> ClonableEnvInfo<'exec, Q> {
 	}
 }
 
-#[deprecated(note = "please use `deserialize_to_owned` instead")]
+#[deprecated(note = "please use `MinimalEnvInfo` instead. \"api\" and \"storage\" has been superseded by _not_ using it.")]
 #[derive(Clone)]
 pub struct ClonableEnvInfoMut<'exec, Q: CustomQuery = Empty> {
 	pub storage: Rc<RefCell<&'exec mut dyn Storage>>,
