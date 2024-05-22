@@ -14,7 +14,13 @@ use std::{
 	rc::Rc,
 	sync::{Arc, OnceLock},
 };
+#[cfg(not(target_family = "wasm"))]
 use which::which;
+
+#[cfg(target_family = "wasm")]
+fn which(_: &str) -> Result<PathBuf, ()> {
+	Err(())
+}
 
 use crate::{
 	error::SdkMakerError,

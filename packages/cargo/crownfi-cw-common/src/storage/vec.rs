@@ -2,26 +2,28 @@ use std::{marker::PhantomData, num::NonZeroUsize};
 
 use cosmwasm_std::{OverflowError, StdError};
 
-use super::{concat_byte_array_pairs, map::StoredMap, MaybeMutableStorage, SerializableItem};
+use super::{
+	base::{storage_read, storage_read_item, storage_write},
+	concat_byte_array_pairs,
+	map::StoredMap,
+	OZeroCopy, SerializableItem,
+};
 
-pub struct StoredVec<'exec, V: SerializableItem> {
+pub struct StoredVec<V: SerializableItem> {
 	namespace: &'static [u8],
-	storage: MaybeMutableStorage<'exec>,
-	map: StoredMap<'exec, u32, V>,
+	map: StoredMap<u32, V>,
 	len: u32,
 }
 
-impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
-	pub fn new(namespace: &'static [u8], storage: MaybeMutableStorage<'exec>) -> Self {
-		let len = storage
-			.get(namespace)
+impl<'exec, V: SerializableItem> StoredVec<V> {
+	pub fn new(namespace: &'static [u8]) -> Self {
+		let len = storage_read(namespace)
 			.map(|data| u32::from_le_bytes(data.try_into().unwrap_or_default()))
 			.unwrap_or_default();
 
 		Self {
 			namespace,
-			storage: storage.clone(),
-			map: StoredMap::new(namespace, storage),
+			map: StoredMap::new(namespace),
 			len,
 		}
 	}
@@ -29,14 +31,13 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 	#[inline]
 	fn set_len(&mut self, value: u32) {
 		self.len = value;
-		self.storage.set(self.namespace, &value.to_le_bytes())
+		storage_write(self.namespace, &value.to_le_bytes());
 	}
 
 	pub fn len(&self) -> u32 {
 		return self.len;
 	}
-
-	pub fn get(&self, index: u32) -> Result<Option<V>, StdError> {
+	pub fn get(&self, index: u32) -> Result<Option<OZeroCopy<V>>, StdError> {
 		if index < self.len {
 			return self.map.get(&index);
 		}
@@ -104,13 +105,11 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 	pub fn is_empty(&self) -> bool {
 		self.len() == 0
 	}
-
-	pub fn iter(&self) -> IndexedStoredItemIter<'exec, V> {
+	pub fn iter(&self) -> IndexedStoredItemIter<V> {
 		let len = self.len();
-		IndexedStoredItemIter::new(self.namespace, self.storage.clone(), 0, len)
+		IndexedStoredItemIter::new(self.namespace, 0, len)
 	}
-
-	pub fn pop(&mut self) -> Result<Option<V>, StdError> {
+	pub fn pop(&mut self) -> Result<Option<OZeroCopy<V>>, StdError> {
 		let mut len = self.len();
 		if len == 0 {
 			return Ok(None);
@@ -131,8 +130,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.set_len(len);
 		Ok(())
 	}
-
-	pub fn remove(&mut self, index: u32) -> Result<V, StdError> {
+	pub fn remove(&mut self, index: u32) -> Result<OZeroCopy<V>, StdError> {
 		let new_len = self
 			.len()
 			.checked_sub(1)
@@ -164,8 +162,7 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 		self.map.set_raw_bytes(&index2, &tmp_value);
 		Ok(())
 	}
-
-	pub fn swap_remove(&mut self, index: u32) -> Result<V, StdError> {
+	pub fn swap_remove(&mut self, index: u32) -> Result<OZeroCopy<V>, StdError> {
 		let new_len = self
 			.len()
 			.checked_sub(1)
@@ -195,46 +192,40 @@ impl<'exec, V: SerializableItem> StoredVec<'exec, V> {
 	}
 }
 
-impl<'exec, V: SerializableItem> IntoIterator for StoredVec<'exec, V> {
-	type Item = Result<V, StdError>;
-	type IntoIter = IndexedStoredItemIter<'exec, V>;
+impl<V: SerializableItem> IntoIterator for StoredVec<V> {
+	type Item = Result<OZeroCopy<V>, StdError>;
+	type IntoIter = IndexedStoredItemIter<V>;
 	fn into_iter(self) -> Self::IntoIter {
 		let len = self.len();
-		IndexedStoredItemIter::new(self.namespace, self.storage, 0, len)
+		IndexedStoredItemIter::new(self.namespace, 0, len)
 	}
 }
-
-impl<'exec, V: SerializableItem> IntoIterator for &StoredVec<'exec, V> {
-	type Item = Result<V, StdError>;
-	type IntoIter = IndexedStoredItemIter<'exec, V>;
+impl<V: SerializableItem> IntoIterator for &StoredVec<V> {
+	type Item = Result<OZeroCopy<V>, StdError>;
+	type IntoIter = IndexedStoredItemIter<V>;
 	fn into_iter(self) -> Self::IntoIter {
 		let len = self.len();
-		IndexedStoredItemIter::new(self.namespace, self.storage.clone(), 0, len)
+		IndexedStoredItemIter::new(self.namespace, 0, len)
 	}
 }
 
 /// Iterator for StoredVec and StoredVecDeque
-pub struct IndexedStoredItemIter<'exec, V: SerializableItem> {
+pub struct IndexedStoredItemIter<V: SerializableItem> {
 	namespace: &'static [u8],
-	storage: MaybeMutableStorage<'exec>,
 	start: u32,
 	end: u32,
 	value_type: PhantomData<V>,
 }
-
-impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
-	pub fn new(namespace: &'static [u8], storage: MaybeMutableStorage<'exec>, start: u32, end: u32) -> Self {
+impl<'exec, V: SerializableItem> IndexedStoredItemIter<V> {
+	pub fn new(namespace: &'static [u8], start: u32, end: u32) -> Self {
 		Self {
 			namespace,
-			storage,
 			start,
 			end,
 			value_type: PhantomData,
 		}
 	}
-
-	// TODO: move to respective traits when https://github.com/rust-lang/rust/issues/77404 is closed.
-	// don't needlessly de-serialize things when calling .skip()
+	// TODO: move to respective trait when https://github.com/rust-lang/rust/issues/77404 is closed.
 	pub fn advance_by(&mut self, n: usize) -> Result<(), NonZeroUsize> {
 		if self.start == self.end {
 			if n == 0 {
@@ -269,7 +260,7 @@ impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
 		}
 		result
 	}
-
+	// TODO: move to respective trait when https://github.com/rust-lang/rust/issues/77404 is closed.
 	fn advance_back_by(&mut self, n: usize) -> Result<(), NonZeroUsize> {
 		if self.start == self.end {
 			if n == 0 {
@@ -306,21 +297,13 @@ impl<'exec, V: SerializableItem> IndexedStoredItemIter<'exec, V> {
 	}
 }
 
-impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<'exec, V> {
-	type Item = Result<V, StdError>;
-
+impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<V> {
+	type Item = Result<OZeroCopy<V>, StdError>;
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.start == self.end {
 			return None;
 		}
-		let Some(data) = self
-			.storage
-			.get(&concat_byte_array_pairs(self.namespace, &self.start.to_le_bytes()))
-		else {
-			return None;
-		};
-		self.start = self.start.wrapping_add(1);
-		Some(V::deserialize(&data))
+		storage_read_item(&concat_byte_array_pairs(self.namespace, &self.start.to_le_bytes())).transpose()
 	}
 
 	fn nth(&mut self, n: usize) -> Option<Self::Item> {
@@ -338,20 +321,13 @@ impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<'exec, V> {
 		(result as usize, Some(result as usize))
 	}
 }
-
-impl<'exec, V: SerializableItem> DoubleEndedIterator for IndexedStoredItemIter<'exec, V> {
+impl<'exec, V: SerializableItem> DoubleEndedIterator for IndexedStoredItemIter<V> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		if self.start == self.end {
 			return None;
 		}
 		self.end = self.end.wrapping_sub(1);
-		let Some(data) = self
-			.storage
-			.get(&concat_byte_array_pairs(self.namespace, &self.end.to_le_bytes()))
-		else {
-			return None;
-		};
-		Some(V::deserialize(&data))
+		storage_read_item(&concat_byte_array_pairs(self.namespace, &self.end.to_le_bytes())).transpose()
 	}
 
 	fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
@@ -359,16 +335,15 @@ impl<'exec, V: SerializableItem> DoubleEndedIterator for IndexedStoredItemIter<'
 		self.next_back()
 	}
 }
-
-impl<'exec, V: SerializableItem> ExactSizeIterator for IndexedStoredItemIter<'exec, V> {
+impl<'exec, V: SerializableItem> ExactSizeIterator for IndexedStoredItemIter<V> {
 	// relies on size_hint to return 2 exact numbers
 }
 
 #[cfg(test)]
 mod tests {
-	use std::{cell::RefCell, rc::Rc};
+	use cosmwasm_std::MemoryStorage;
 
-	use cosmwasm_std::{testing::MockStorage, Storage};
+	use crate::storage::base::set_global_storage;
 
 	use super::*;
 
@@ -378,10 +353,8 @@ mod tests {
 
 	#[test]
 	fn get_after_dirty_clear() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		set_global_storage(Box::new(MemoryStorage::new()));
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 
 		vec.extend([1, 2, 3].into_iter())?;
 		vec.clear(true);
