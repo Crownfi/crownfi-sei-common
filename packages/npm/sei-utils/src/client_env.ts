@@ -326,7 +326,7 @@ export class ClientEnv {
 			: {
 					transactionHash: tx,
 					...result,
-				};
+			  };
 	}
 
 	signAndSend(msgs: EncodeObject[]): Promise<DeliverTxResponse>;
@@ -581,13 +581,13 @@ export class ContractDeployingClientEnv extends ClientEnv {
 						address: "",
 						addresses: [],
 						permission: 3, // ACCESS_TYPE_EVERYBODY
-					}
+				  }
 				: {
 						// This property is apparently deprecrated but Sei can't understand anything else anyway
 						address: this.account.address,
 						addresses: [],
 						permission: 2, // ACCESS_TYPE_ONLY_ADDRESS
-					}
+				  }
 		);
 		return result;
 	}

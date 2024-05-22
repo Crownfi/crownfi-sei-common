@@ -1,21 +1,23 @@
-use super::SerializableItem;
+use super::base::{storage_read_item, storage_remove, storage_write, storage_write_item};
+use super::{OZeroCopy, SerializableItem};
 use cosmwasm_std::{StdError, Storage};
 use std::ops::{Deref, DerefMut};
-use std::{cell::RefCell, rc::Rc};
 
-pub trait StoredItem: SerializableItem {
+pub trait StoredItem: SerializableItem + Sized {
 	fn namespace() -> &'static [u8];
 
+	#[deprecated(note = "please use `storage_read_item` instead")]
 	fn load_from_key(storage: &dyn Storage, key: &[u8]) -> Result<Option<Self>, StdError>
 	where
 		Self: Sized,
 	{
+		// storage.get(key).as_deref().map(Self::deserialize).transpose()
 		let Some(data) = storage.get(key) else {
 			return Ok(None);
 		};
-		Ok(Some(Self::deserialize(&data)?))
+		Ok(Some(Self::deserialize_to_owned(&data)?))
 	}
-
+	#[deprecated(note = "please use `storage_write_item` instead")]
 	fn save_to_key(&self, storage: &mut dyn Storage, key: &[u8]) -> Result<(), StdError> {
 		if let Some(bytes) = self.serialize_as_ref() {
 			storage.set(key, bytes);
@@ -26,150 +28,192 @@ pub trait StoredItem: SerializableItem {
 	}
 
 	#[inline]
-	fn load(storage: &dyn Storage) -> Result<Option<Self>, StdError>
+	fn load() -> Result<Option<OZeroCopy<Self>>, StdError>
 	where
 		Self: Sized,
 	{
-		Self::load_from_key(storage, Self::namespace())
+		storage_read_item(Self::namespace())
 	}
 
 	#[inline]
-	fn save(&self, storage: &mut dyn Storage) -> Result<(), StdError> {
-		self.save_to_key(storage, Self::namespace())
+	fn save(&self) -> Result<(), StdError> {
+		storage_write_item(Self::namespace(), self)
 	}
 
-	fn remove(storage: &mut dyn Storage) {
-		storage.remove(Self::namespace())
+	fn remove() {
+		storage_remove(Self::namespace())
 	}
 
-	fn load_with_autosave<'a>(
-		storage: &Rc<RefCell<&'a mut dyn Storage>>,
-	) -> Result<Option<AutosavingStoredItem<'a, Self>>, StdError>
-	where
-		Self: Sized,
-	{
-		AutosavingStoredItem::new(storage)
+	fn load_with_autosave() -> Result<Option<AutosavingStoredItem<Self>>, StdError> {
+		AutosavingStoredItem::new()
 	}
 
-	fn load_with_autosave_or_default<'a>(
-		storage: &Rc<RefCell<&'a mut dyn Storage>>,
-	) -> Result<AutosavingStoredItem<'a, Self>, StdError>
+	fn load_with_autosave_or_default() -> Result<AutosavingStoredItem<Self>, StdError>
 	where
 		Self: Default,
 	{
-		AutosavingStoredItem::new_or_default(storage)
+		AutosavingStoredItem::new_or_default()
 	}
 }
 
-pub struct AutosavingStoredItem<'a, T: StoredItem> {
-	value: T,
-	storage: Rc<RefCell<&'a mut dyn Storage>>,
+pub struct AutosavingStoredItem<T: StoredItem> {
+	value: OZeroCopy<T>,
 }
-impl<'a, T: StoredItem> AutosavingStoredItem<'a, T> {
-	pub fn new(storage: &Rc<RefCell<&'a mut dyn Storage>>) -> Result<Option<Self>, StdError> {
-		let Some(value) = T::load(*storage.borrow())? else {
+impl<'a, T: StoredItem> AutosavingStoredItem<T> {
+	pub fn new() -> Result<Option<Self>, StdError> {
+		let Some(value) = T::load()? else {
 			return Ok(None);
 		};
-		Ok(Some(Self {
-			value,
-			storage: storage.clone(),
-		}))
+		Ok(Some(Self { value }))
 	}
 }
-impl<'a, T: StoredItem + Default> AutosavingStoredItem<'a, T> {
-	pub fn new_or_default(storage: &Rc<RefCell<&'a mut dyn Storage>>) -> Result<Self, StdError> {
-		let Some(value) = T::load(*storage.borrow())? else {
+impl<'a, T: StoredItem + Default> AutosavingStoredItem<T> {
+	pub fn new_or_default() -> Result<Self, StdError> {
+		let Some(value) = T::load()? else {
 			return Ok(Self {
-				value: T::default(),
-				storage: storage.clone(),
+				value: OZeroCopy::from_inner(T::default()),
 			});
 		};
-		Ok(Self {
-			value,
-			storage: storage.clone(),
-		})
+		Ok(Self { value })
 	}
 }
-impl<T: StoredItem> Deref for AutosavingStoredItem<'_, T> {
+impl<T: StoredItem> Deref for AutosavingStoredItem<T> {
 	type Target = T;
 	fn deref(&self) -> &Self::Target {
 		&self.value
 	}
 }
-impl<T: StoredItem> DerefMut for AutosavingStoredItem<'_, T> {
+impl<T: StoredItem> DerefMut for AutosavingStoredItem<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.value
 	}
 }
-impl<'a, T> Drop for AutosavingStoredItem<'a, T>
+impl<T> Drop for AutosavingStoredItem<T>
 where
 	T: StoredItem,
 {
 	fn drop(&mut self) {
-		self.value
-			.save(*self.storage.borrow_mut())
-			.expect("serialization error on autosave")
+		match &self.value.0 {
+			super::OZeroCopyType::Copy(val) => {
+				storage_write_item(T::namespace(), val).expect("serialization error on autosave")
+			}
+			super::OZeroCopyType::ZeroCopy(bytes) => storage_write(T::namespace(), bytes),
+		}
 	}
 }
 
-pub struct AutosavingSerializableItem<'a, T: SerializableItem> {
-	value: T,
+pub struct AutosavingSerializableItem<T: SerializableItem> {
+	value: OZeroCopy<T>,
 	namespace: Vec<u8>,
-	storage: Rc<RefCell<&'a mut dyn Storage>>,
 }
-impl<'a, T: SerializableItem> AutosavingSerializableItem<'a, T> {
-	pub fn new(storage: &Rc<RefCell<&'a mut dyn Storage>>, namespace: Vec<u8>) -> Result<Option<Self>, StdError> {
-		let Some(data) = storage.borrow().get(&namespace) else { return Ok(None) };
-		Ok(Some(Self {
-			value: T::deserialize(&data)?,
-			namespace,
-			storage: storage.clone(),
-		}))
+impl<T: SerializableItem> AutosavingSerializableItem<T> {
+	pub fn new(namespace: Vec<u8>) -> Result<Option<Self>, StdError> {
+		let Some(value) = storage_read_item(&namespace)? else { return Ok(None) };
+		Ok(Some(Self { value, namespace }))
 	}
 }
-impl<'a, T: SerializableItem + Default> AutosavingSerializableItem<'a, T> {
-	pub fn new_or_default(storage: &Rc<RefCell<&'a mut dyn Storage>>, namespace: Vec<u8>) -> Result<Self, StdError> {
-		let Some(data) = storage.borrow().get(&namespace) else {
-			return Ok(Self {
-				value: T::default(),
+impl<'a, T: SerializableItem + Default> AutosavingSerializableItem<T> {
+	pub fn new_or_default(namespace: Vec<u8>) -> Result<Self, StdError> {
+		if let Some(value) = storage_read_item(&namespace)? {
+			Ok(Self { value, namespace })
+		} else {
+			Ok(Self {
+				value: OZeroCopy::from_inner(T::default()),
 				namespace,
-				storage: storage.clone(),
-			});
-		};
-		Ok(Self {
-			value: T::deserialize(&data)?,
-			namespace,
-			storage: storage.clone(),
-		})
+			})
+		}
 	}
 }
-impl<T: SerializableItem> Deref for AutosavingSerializableItem<'_, T> {
+impl<T: SerializableItem> Deref for AutosavingSerializableItem<T> {
 	type Target = T;
 	fn deref(&self) -> &Self::Target {
 		&self.value
 	}
 }
-impl<T: SerializableItem> DerefMut for AutosavingSerializableItem<'_, T> {
+impl<T: SerializableItem> DerefMut for AutosavingSerializableItem<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.value
 	}
 }
-impl<'a, T> Drop for AutosavingSerializableItem<'a, T>
+impl<'a, T> Drop for AutosavingSerializableItem<T>
 where
 	T: SerializableItem,
 {
 	fn drop(&mut self) {
-		let mut storage = self.storage.borrow_mut();
-		if let Some(bytes) = self.value.serialize_as_ref() {
-			storage.set(&self.namespace, bytes);
-		} else {
-			storage.set(
-				&self.namespace,
-				&self
-					.value
-					.serialize_to_owned()
-					.expect("autosave serialize should never fail"),
-			)
+		match &self.value.0 {
+			super::OZeroCopyType::Copy(val) => {
+				storage_write_item(&self.namespace, val).expect("serialization error on autosave")
+			}
+			super::OZeroCopyType::ZeroCopy(bytes) => storage_write(&self.namespace, bytes),
 		}
+	}
+}
+
+
+#[cfg(test)]
+mod tests {
+	use crate::storage::{base::{storage_read, storage_remove}, testing_common::*};
+	use super::*;
+
+	impl StoredItem for u8 {
+		fn namespace() -> &'static [u8] {
+			b"testing"
+		}
+	}
+
+	impl StoredItem for (u16, u16) {
+		fn namespace() -> &'static [u8] {
+			b"testing2"
+		}
+	}
+
+	#[test]
+	fn autosaving_stored_item() -> TestingResult {
+		let _storage_lock = init()?;
+		let mut item = u8::load_with_autosave_or_default()?;
+
+		*item = 69;
+		drop(item);
+
+		let mut item = u8::load_with_autosave()?.unwrap();
+		assert_eq!(69, *item);
+
+		*item *= 2;
+		assert_eq!(Some(69), storage_read_item::<u8>(u8::namespace())?.map(|x| x.into_inner()));
+		drop(item);
+		assert_eq!(Some(69 * 2), storage_read_item::<u8>(u8::namespace())?.map(|x| x.into_inner()));
+
+		Ok(())
+	}
+
+	#[test]
+	fn autosaving_stored_item_rm() -> TestingResult {
+		let _storage_lock = init()?;
+		let mut item = u8::load_with_autosave_or_default()?;
+
+		*item = 69;
+		drop(item);
+
+		storage_remove(u8::namespace());
+		assert!(storage_read(u8::namespace()).is_none());
+
+		Ok(())
+	}
+
+	// testing borsh serialize/deserialize
+	#[test]
+	fn autosaving_tuple_items() -> TestingResult {
+		let _storage_lock = init()?;
+		let mut item = <(u16, u16)>::load_with_autosave_or_default()?;
+
+		*item = (69, 420);
+		drop(item);
+
+		assert_eq!(Some((69u16, 420u16)), storage_read_item(<(u16, u16)>::namespace())?.map(OZeroCopy::into_inner));
+
+		storage_remove(<(u16, u16)>::namespace());
+		assert_eq!(None, storage_read(<(u16, u16)>::namespace()));
+
+		Ok(())
 	}
 }

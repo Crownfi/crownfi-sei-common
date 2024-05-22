@@ -234,6 +234,7 @@ pub(crate) fn schema_type_string(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub(crate) enum MethodGenType<'a> {
 	Instantiate,
 	Execute,
@@ -306,6 +307,7 @@ pub(crate) enum MethodArgType<'a> {
 }
 impl MethodArgType<'_> {
 	#[inline]
+	#[allow(dead_code)]
 	pub(crate) fn is_none(&self) -> bool {
 		match self {
 			MethodArgType::None => true,
@@ -327,3 +329,6 @@ impl MethodArgType<'_> {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {}

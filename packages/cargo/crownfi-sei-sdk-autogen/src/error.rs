@@ -12,8 +12,14 @@ pub enum SdkMakerError {
 	DummyRootSchmaNoObject,
 	#[error("Expected the contract's auto-generated JSON schema's message types to be refrences to the actual type")]
 	DummyRootSchemaInvalidProperty,
+	#[cfg(not(target_family = "wasm"))]
 	#[error("\"json2ts\" wasn't found: {0} (Try \"npm install -g json-schema-to-typescript\")")]
 	Json2TsNotFound(which::Error),
+	#[cfg(target_family = "wasm")]
+	#[error(
+		"The \"which\" crate this depends upon doesn't know how to search for executable programs in a wasm space"
+	)]
+	Json2TsNotFound(()),
 	#[error("{0} Is not an enum. (Must be made up of subschemas using one_of)")]
 	MsgTypeNotEnum(String),
 	#[error("{0} has an enum varient which is neither schema'd as an object with a single property nor a string")]
