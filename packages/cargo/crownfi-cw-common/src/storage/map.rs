@@ -184,11 +184,8 @@ impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for Store
 mod tests {
 	use crate::storage::testing_common::*;
 	use super::*;
-	use crate::storage::base::set_global_storage;
-	use cosmwasm_std::MemoryStorage;
 	#[test]
 	fn stored_map_iter() {
-		set_global_storage(Box::new(MemoryStorage::new()));
 		let _storage_lock = init().unwrap();
 
 		let stored_map = StoredMap::<String, String>::new(b"namespace");
@@ -305,21 +302,6 @@ mod tests {
 		assert_eq!(stored_map.get_raw_bytes(key), Some(b"val1".to_vec()));
 
 		Ok(())
-	}
-
-	// XXX: idk if that's unespected behavior
-	#[test]
-	#[should_panic]
-	fn panic_on_unknown_length() {
-		let _storage_lock = init().unwrap();
-		let stored_map = StoredMap::<String, String>::new(NAMESPACE);
-
-		let key = String::from("key1");
-		let value = String::from("val1");
-
-		stored_map.set_raw_bytes(&key, value.as_bytes());
-		stored_map.get_raw_bytes(&key).unwrap(); // SHOULD PANIC
-		assert!(true); // SHOULD NOT BE REACHED
 	}
 
 	#[test]

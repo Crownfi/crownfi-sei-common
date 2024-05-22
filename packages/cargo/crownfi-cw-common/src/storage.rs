@@ -50,7 +50,7 @@ pub fn concat_byte_array_pairs(a: &[u8], b: &[u8]) -> Vec<u8> {
 	result
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 enum OZeroCopyType<T: Sized + SerializableItem> {
 	Copy(T),
 	ZeroCopy(Vec<u8>),
@@ -71,7 +71,7 @@ where
 /// This object exists because while ideally we would convert a Vec<u8> into a Box<T>, the issue is that one of Rust's
 /// guarantees is that the alignment of a block of data allocated on the heap does not change, or rather, calls to
 /// `alloc` and `dealloc` will be provided the same size and layout.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone)]
 pub struct OZeroCopy<T: Sized + SerializableItem>(OZeroCopyType<T>);
 impl<T: Sized + SerializableItem> OZeroCopy<T> {
 	pub fn new(bytes: Vec<u8>) -> Result<Self, StdError> {
@@ -125,6 +125,12 @@ impl<T: Sized + SerializableItem> DerefMut for OZeroCopy<T> {
 		self.as_mut()
 	}
 }
+impl<T: SerializableItem + PartialEq> PartialEq for OZeroCopy<T> {
+	fn eq(&self, other: &Self) -> bool {
+		self.deref() == other.deref()
+	}
+}
+impl<T: SerializableItem + PartialEq + Eq> Eq for OZeroCopy<T> {}
 
 pub trait SerializableItem {
 	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError>;

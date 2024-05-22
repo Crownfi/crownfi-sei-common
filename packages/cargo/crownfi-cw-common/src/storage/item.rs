@@ -209,7 +209,7 @@ mod tests {
 		*item = (69, 420);
 		drop(item);
 
-		assert_eq!(Some((69, 420)), storage_read_item(<(u16, u16)>::namespace())?.map(OZeroCopy::into_inner));
+		assert_eq!(Some((69u16, 420u16)), storage_read_item(<(u16, u16)>::namespace())?.map(OZeroCopy::into_inner));
 
 		storage_remove(<(u16, u16)>::namespace());
 		assert_eq!(None, storage_read(<(u16, u16)>::namespace()));

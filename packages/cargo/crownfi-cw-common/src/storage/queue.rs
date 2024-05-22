@@ -212,11 +212,7 @@ impl<V: SerializableItem> IntoIterator for &StoredVecDeque<V> {
 }
 #[cfg(test)]
 mod tests {
-	use std::{cell::RefCell, collections::VecDeque, rc::Rc};
-	use cosmwasm_std::MemoryStorage;
-
-	use crate::storage::base::set_global_storage;
-
+	use std::collections::VecDeque;
 	use crate::storage::{base::{storage_has, storage_remove}, testing_common::*};
 	use super::*;
 
@@ -224,7 +220,6 @@ mod tests {
 	const NAMESPACE: &[u8] = b"testing";
 	#[test]
 	fn push_front_get_pop() -> TestingResult {
-		set_global_storage(Box::new(MemoryStorage::new()));
 		let _storage_lock = init()?;
 		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
 
@@ -246,7 +241,7 @@ mod tests {
 	}
 	#[test]
 	fn push_back_get_pop() -> TestingResult {
-		set_global_storage(Box::new(MemoryStorage::new()));
+		let _storage_lock = init()?;
 		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
 
 		queue.push_back(&1)?;
@@ -284,7 +279,7 @@ mod tests {
 		assert_eq!(Some(OZeroCopy::from_inner(1234)), queue.get_front()?);
 		assert_eq!(Some(OZeroCopy::from_inner(1234)), queue.get(0)?);
 		assert_eq!(Some(OZeroCopy::from_inner(69)), queue.get_back()?);
-		// assert_eq!(Some(69), queue.get(1)?); // XXX: BROKEN BECAUSE OF queue.len()
+		assert_eq!(Some(69), queue.get(1)?.map(OZeroCopy::into_inner)); // XXX: BROKEN BECAUSE OF queue.len()
 
 		queue.set(0, &69)?;
 		// queue.set(u32::MAX - 1, &420)?;
@@ -333,8 +328,9 @@ mod tests {
 		Ok(())
 	}
 
-	// XXX: Aritz doesn't know how to handle it,
+	// kuriboh: Aritz doesn't know how to handle it,
 	// but at least this proves that the vec caches its length
+	// aritz: yeah, similar problem to std::fs being "unsafe".
 	#[test]
 	fn wanted_behavior_question_mark() -> TestingResult {
 		let _storage_lock = init()?;
@@ -399,10 +395,8 @@ mod tests {
 		Ok(())
 	}
 
-	// XXX: len fn returning wrong value
 	#[test]
-	#[should_panic]
-	fn queue_length_broken() {
+	fn queue_length_back_and_front() {
 		let _storage_lock = init().unwrap();
 		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
 
@@ -464,14 +458,10 @@ mod tests {
 	}
 
 	// #[test]
-	// #[ignore]
 	// fn queue_is_full() -> TestingResult {
-	// 	let mut storage_ = MockStorage::new();
-	// 	let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-	// 	let storage = MaybeMutableStorage::new_mutable_shared(storage);
-	// 	let mut queue = StoredVecDeque::<u32>::new(NAMESPACE, storage);
-	//
-	// 	for x in 0..u32::MAX {
+	// 	let _storage_lock = init()?;
+	// 	let mut queue = StoredVecDeque::<u32>::new(NAMESPACE);
+	// 		for x in 0..u32::MAX {
 	// 		queue.push_back(&x)?;
 	// 	}
 	//

@@ -303,7 +303,9 @@ impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<V> {
 		if self.start == self.end {
 			return None;
 		}
-		storage_read_item(&concat_byte_array_pairs(self.namespace, &self.start.to_le_bytes())).transpose()
+		let result = storage_read_item(&concat_byte_array_pairs(self.namespace, &self.start.to_le_bytes())).transpose();
+		self.start = self.start.wrapping_add(1);
+		result
 	}
 
 	fn nth(&mut self, n: usize) -> Option<Self::Item> {
@@ -314,7 +316,7 @@ impl<'exec, V: SerializableItem> Iterator for IndexedStoredItemIter<V> {
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let result;
 		if self.start > self.end {
-			result = u32::MAX - (self.start - self.end);
+			result = u32::MAX - (self.start - self.end) + 1;
 		} else {
 			result = self.end - self.start;
 		}
