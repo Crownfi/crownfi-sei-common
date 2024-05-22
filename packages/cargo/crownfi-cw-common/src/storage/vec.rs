@@ -346,14 +346,12 @@ mod tests {
 	use crate::storage::base::set_global_storage;
 
 	use super::*;
-
-	const NAMESPACE: &[u8] = b"testing";
-
-	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+	use crate::storage::testing_common::*;
 
 	#[test]
 	fn get_after_dirty_clear() -> TestingResult {
 		set_global_storage(Box::new(MemoryStorage::new()));
+		let _storage_lock = init()?;
 		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 
 		vec.extend([1, 2, 3].into_iter())?;
@@ -368,26 +366,23 @@ mod tests {
 
 	#[test]
 	fn stored_vec() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		// would be cool if we could make this into a static variable
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let _storage_lock = init()?;
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
 		vec.push(&69)?;
 		vec.push(&420)?;
 
-		let vec: Vec<u16> = vec.into_iter().filter_map(Result::ok).collect();
+		let vec: Vec<u16> = vec.into_iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(vec, vec![69, 420]);
 
-		let vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		let vec = StoredVec::<u16>::new(NAMESPACE);
 		assert_eq!(2, vec.len());
-		assert_eq!(Some(69), vec.get(0)?);
-		assert_eq!(Some(420), vec.get(1)?);
+		assert_eq!(Some(OZeroCopy::from_inner(69)), vec.get(0)?);
+		assert_eq!(Some(OZeroCopy::from_inner(420)), vec.get(1)?);
 
 		vec.set(0, &123)?;
 		assert!(vec.set(vec.len() + 1, &123).is_err());
-		assert_eq!(Some(123), vec.get(0)?);
+		assert_eq!(Some(OZeroCopy::from_inner(123)), vec.get(0)?);
 
 		assert_eq!(vec.capacity(), u32::MAX); // unnecessary, but i wanted to see all the function tested on the HTML file
 
@@ -396,17 +391,15 @@ mod tests {
 
 	#[test]
 	fn extend() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init()?;
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 
 		vec.push(&69)?;
 		vec.push(&420)?;
 		vec.extend([1, 2, 3].into_iter())?;
 		vec.extend_ref([Box::new(4)].into_iter())?;
 
-		let vec: Vec<u16> = vec.into_iter().filter_map(Result::ok).collect();
+		let vec: Vec<u16> = vec.into_iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(vec, vec![69, 420, 1, 2, 3, 4]);
 
 		Ok(())
@@ -414,30 +407,28 @@ mod tests {
 
 	#[test]
 	fn insert_and_remove() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init()?;
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 
 		vec.push(&69)?;
 		vec.push(&420)?;
 
 		vec.insert(1, &1)?;
-		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(v, vec![69, 1]);
 
 		vec.remove(1)?;
-		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(v, vec![69]);
 
 		vec.extend([1, 2, 3].into_iter())?;
 		vec.pop()?;
 
-		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(v, vec![69, 1, 2]);
 
 		vec.remove(1)?;
-		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(v, vec![69, 2]);
 
 		vec.clear(true);
@@ -449,65 +440,62 @@ mod tests {
 
 	#[test]
 	fn extra_ops() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init()?;
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 
 		vec.push(&69)?;
 		vec.push(&420)?;
 
 		vec.swap(0, 1)?;
 
-		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(v, vec![420, 69]);
 
 		vec.extend([1, 2, 3].into_iter())?;
 		vec.swap_remove(1)?;
 
-		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(v, vec![420, 3, 1, 2]);
 
 		vec.truncate(3, true);
-		let v: Vec<_> = vec.iter().filter_map(Result::ok).collect();
+		let v: Vec<_> = vec.iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(v, vec![420, 3, 1]);
 
 		let mut iterator = vec.iter();
 		iterator.advance_by(1).unwrap();
-		let v: Vec<_> = iterator.filter_map(Result::ok).collect();
+		let v: Vec<_> = iterator.filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(v, vec![3, 1]);
 
 		let mut iterator = vec.iter();
 		iterator.advance_back_by(1).unwrap();
-		let v: Vec<_> = iterator.filter_map(Result::ok).collect();
+		let v: Vec<_> = iterator.filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		assert_eq!(v, vec![420, 3]);
 
 		let mut iterator = vec.iter();
 		let x = iterator.next_back().unwrap()?;
-		assert_eq!(x, 1);
+		assert_eq!(*x, 1);
 		let x = iterator.nth_back(0).unwrap()?;
-		assert_eq!(x, 3);
+		assert_eq!(*x, 3);
 		let x = iterator.nth(0).unwrap()?;
-		assert_eq!(x, 420);
+		assert_eq!(*x, 420);
 
 		Ok(())
 	}
 
 	#[test]
 	fn after_drop() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
+		let _storage_lock = init()?;
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
 		vec.push(&69)?;
 		vec.push(&420)?;
 
 		drop(vec);
 
-		let vec: Vec<u16> = StoredVec::<u16>::new(NAMESPACE, storage)
+		let vec: Vec<u16> = StoredVec::<u16>::new(NAMESPACE)
 			.into_iter()
 			.filter_map(Result::ok)
+			.map(OZeroCopy::into_inner)
 			.collect();
 		assert_eq!(vec, vec![69, 420]);
 
@@ -516,19 +504,17 @@ mod tests {
 
 	#[test]
 	fn clean() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init()?;
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 
-		let push_values = |vec: &mut StoredVec<'_, u16>| -> TestingResult {
+		let push_values = |vec: &mut StoredVec<u16>| -> TestingResult {
 			vec.push(&69)?;
 			vec.push(&420)?;
 			Ok(())
 		};
 
-		let check_values = |vec: &StoredVec<'_, u16>| -> TestingResult {
-			let vec: Vec<u16> = vec.iter().filter_map(Result::ok).collect();
+		let check_values = |vec: &StoredVec<u16>| -> TestingResult {
+			let vec: Vec<u16> = vec.iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 			assert_eq!(vec, vec![69, 420]);
 			Ok(())
 		};
@@ -538,8 +524,8 @@ mod tests {
 		vec.clear(true);
 		drop(vec);
 
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
-		let q: Vec<u16> = vec.iter().filter_map(Result::ok).collect();
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
+		let q: Vec<_> = vec.iter().filter_map(Result::ok).collect();
 		assert_eq!(q.len(), 0);
 
 		push_values(&mut vec)?;
@@ -547,26 +533,26 @@ mod tests {
 		vec.clear(false);
 		drop(vec);
 
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
-		let q: Vec<u16> = vec.iter().filter_map(Result::ok).collect();
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
+		let q: Vec<_> = vec.iter().filter_map(Result::ok).collect();
 		assert_eq!(q.len(), 0);
 
 		push_values(&mut vec)?;
 		check_values(&vec)?;
 		drop(vec);
 
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 		vec.clear(false);
-		let q: Vec<u16> = vec.iter().filter_map(Result::ok).collect();
+		let q: Vec<_> = vec.iter().filter_map(Result::ok).collect();
 		assert_eq!(q.len(), 0);
 
 		push_values(&mut vec)?;
 		check_values(&vec)?;
 		drop(vec);
 
-		let mut vec = StoredVec::<u16>::new(NAMESPACE, storage);
+		let mut vec = StoredVec::<u16>::new(NAMESPACE);
 		vec.clear(true);
-		let q: Vec<u16> = (&vec).into_iter().filter_map(Result::ok).collect();
+		let q: Vec<_> = (&vec).into_iter().filter_map(Result::ok).collect();
 		assert_eq!(q.len(), 0);
 
 		Ok(())

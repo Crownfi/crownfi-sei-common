@@ -149,12 +149,10 @@ where
 	}
 }
 
+
 #[cfg(test)]
 mod tests {
-	use std::rc::Rc;
-
-	use cosmwasm_std::testing::*;
-
+	use crate::storage::{base::{storage_read, storage_remove}, testing_common::*};
 	use super::*;
 
 	impl StoredItem for u8 {
@@ -169,38 +167,35 @@ mod tests {
 		}
 	}
 
-	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 	#[test]
 	fn autosaving_stored_item() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let mut item = u8::load_with_autosave_or_default(&storage)?;
+		let _storage_lock = init()?;
+		let mut item = u8::load_with_autosave_or_default()?;
 
 		*item = 69;
 		drop(item);
 
-		let mut item = u8::load_with_autosave(&storage)?.unwrap();
+		let mut item = u8::load_with_autosave()?.unwrap();
 		assert_eq!(69, *item);
 
 		*item *= 2;
-		assert_eq!(69, u8::load(*storage.borrow())?.unwrap());
+		assert_eq!(Some(69), storage_read_item::<u8>(u8::namespace())?.map(|x| x.into_inner()));
 		drop(item);
-		assert_eq!(69 * 2, u8::load(&storage_)?.unwrap());
+		assert_eq!(Some(69 * 2), storage_read_item::<u8>(u8::namespace())?.map(|x| x.into_inner()));
 
 		Ok(())
 	}
 
 	#[test]
 	fn autosaving_stored_item_rm() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let mut item = u8::load_with_autosave_or_default(&storage)?;
+		let _storage_lock = init()?;
+		let mut item = u8::load_with_autosave_or_default()?;
+
 		*item = 69;
 		drop(item);
 
-		u8::remove(&mut storage_);
-		assert_eq!(None, u8::load(&mut storage_)?);
+		storage_remove(u8::namespace());
+		assert!(storage_read(u8::namespace()).is_none());
 
 		Ok(())
 	}
@@ -208,17 +203,16 @@ mod tests {
 	// testing borsh serialize/deserialize
 	#[test]
 	fn autosaving_tuple_items() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let mut item = <(u16, u16)>::load_with_autosave_or_default(&storage)?;
+		let _storage_lock = init()?;
+		let mut item = <(u16, u16)>::load_with_autosave_or_default()?;
 
 		*item = (69, 420);
 		drop(item);
 
-		assert_eq!(Some((69, 420)), <(u16, u16)>::load(&mut storage_)?);
+		assert_eq!(Some((69, 420)), storage_read_item(<(u16, u16)>::namespace())?.map(OZeroCopy::into_inner));
 
-		<(u16, u16)>::remove(&mut storage_);
-		assert_eq!(None, <(u16, u16)>::load(&mut storage_)?);
+		storage_remove(<(u16, u16)>::namespace());
+		assert_eq!(None, storage_read(<(u16, u16)>::namespace()));
 
 		Ok(())
 	}

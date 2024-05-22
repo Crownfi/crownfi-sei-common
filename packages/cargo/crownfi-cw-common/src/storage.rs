@@ -879,3 +879,22 @@ pub enum MaybeMutableStorageRef<'a> {
 	Immutable(&'a dyn Storage),
 	MutableShared(Ref<'a, &'a mut dyn Storage>),
 }
+
+#[cfg(test)]
+pub mod testing_common {
+	use cosmwasm_std::MemoryStorage;
+
+	use super::base::set_global_storage;
+
+	pub type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+	pub const NAMESPACE: &[u8] = b"testing";
+
+	static MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+	pub fn init<'a>() -> TestingResult<std::sync::MutexGuard<'a, ()>> {
+		let lock = MUTEX.lock()?;
+		set_global_storage(Box::new(MemoryStorage::new()));
+
+		Ok(lock)
+	}
+}

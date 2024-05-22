@@ -217,6 +217,7 @@ mod tests {
 
 	use crate::storage::base::set_global_storage;
 
+	use crate::storage::{base::{storage_has, storage_remove}, testing_common::*};
 	use super::*;
 
 	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -224,6 +225,7 @@ mod tests {
 	#[test]
 	fn push_front_get_pop() -> TestingResult {
 		set_global_storage(Box::new(MemoryStorage::new()));
+		let _storage_lock = init()?;
 		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
 
 		queue.push_front(&1)?;
@@ -267,34 +269,33 @@ mod tests {
 
 	#[test]
 	fn queue() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init()?;
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
+
 		queue.push_front(&69)?;
 		queue.push_back(&420)?;
 		queue.push_front(&1234)?;
 		queue.pop_back()?;
 
-		let queue_: VecDeque<u16> = queue.iter().filter_map(Result::ok).collect();
+		let queue_: VecDeque<u16> = queue.iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
 		let sample = VecDeque::<u16>::from([1234, 69]);
 
 		assert_eq!(queue_, sample);
-		assert_eq!(Some(1234), queue.get_front()?);
-		assert_eq!(Some(1234), queue.get(0)?);
-		assert_eq!(Some(69), queue.get_back()?);
+		assert_eq!(Some(OZeroCopy::from_inner(1234)), queue.get_front()?);
+		assert_eq!(Some(OZeroCopy::from_inner(1234)), queue.get(0)?);
+		assert_eq!(Some(OZeroCopy::from_inner(69)), queue.get_back()?);
 		// assert_eq!(Some(69), queue.get(1)?); // XXX: BROKEN BECAUSE OF queue.len()
 
 		queue.set(0, &69)?;
 		// queue.set(u32::MAX - 1, &420)?;
 
-		assert_eq!(Some(69), queue.get(0)?);
+		assert_eq!(Some(OZeroCopy::from_inner(69)), queue.get(0)?);
 		// assert_eq!(Some(420), queue.get(u32::MAX - 1)?);
 
 		queue.set_front(&420)?;
 		queue.set_back(&69)?;
-		assert_eq!(Some(420), queue.get_front()?);
-		assert_eq!(Some(69), queue.get_back()?);
+		assert_eq!(Some(OZeroCopy::from_inner(420)), queue.get_front()?);
+		assert_eq!(Some(OZeroCopy::from_inner(69)), queue.get_back()?);
 		let ends = queue.ends();
 		dbg!(ends.clone());
 
@@ -317,20 +318,17 @@ mod tests {
 
 	#[test]
 	fn queue_rm() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage__ = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage__.clone());
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init()?;
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
+
 		queue.push_front(&69)?;
 		queue.push_back(&420)?;
 		queue.push_front(&1234)?;
 		queue.pop_back()?;
 		queue.pop_front()?;
 
-		// using different pointers just as a sanity check
-		storage__.borrow_mut().remove(NAMESPACE);
-		let data = storage.get(NAMESPACE);
-		assert!(data.is_none());
+		storage_remove(NAMESPACE);
+		assert!(!storage_has(NAMESPACE));
 
 		Ok(())
 	}
@@ -339,17 +337,15 @@ mod tests {
 	// but at least this proves that the vec caches its length
 	#[test]
 	fn wanted_behavior_question_mark() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init()?;
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
 
 		queue.push_front(&69)?;
 		queue.push_back(&420)?;
 
-		storage.remove(NAMESPACE);
+		storage_remove(NAMESPACE);
 
-		assert!(storage.get(NAMESPACE).is_none());
+		assert!(!storage_has(NAMESPACE));
 		assert!(queue.into_iter().all(|x| x.is_ok()));
 
 		Ok(())
@@ -357,16 +353,15 @@ mod tests {
 
 	#[test]
 	fn queue_from_vec() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut vec = crate::storage::vec::StoredVec::<u16>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init()?;
+		let mut vec = crate::storage::vec::StoredVec::<u16>::new(NAMESPACE);
+
 		vec.push(&69)?;
 		vec.push(&420)?;
 		drop(vec);
 
-		let queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
-		let queue = queue.into_iter().filter_map(Result::ok).collect::<VecDeque<u16>>();
+		let queue = StoredVecDeque::<u16>::new(NAMESPACE);
+		let queue = queue.into_iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect::<VecDeque<u16>>();
 		assert_eq!(queue, VecDeque::from([69, 420]));
 
 		Ok(())
@@ -374,15 +369,14 @@ mod tests {
 
 	#[test]
 	fn queue_from_queue() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut queue = StoredVecDeque::<u8>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init()?;
+		let mut queue = StoredVecDeque::<u8>::new(NAMESPACE);
+
 		queue.push_back(&69)?;
 		drop(queue);
 
-		let queue = StoredVecDeque::<u8>::new(NAMESPACE, storage);
-		let queue = queue.into_iter().filter_map(Result::ok).collect::<VecDeque<u8>>();
+		let queue = StoredVecDeque::<u8>::new(NAMESPACE);
+		let queue = queue.into_iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect::<VecDeque<u8>>();
 		assert_eq!(queue, VecDeque::from([69]));
 
 		Ok(())
@@ -390,16 +384,15 @@ mod tests {
 
 	#[test]
 	fn queue_length() -> TestingResult {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init()?;
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
+
 		queue.push_back(&69)?;
 		queue.push_back(&420)?;
 
 		drop(queue);
 
-		let queue = StoredVecDeque::<u16>::new(NAMESPACE, storage);
+		let queue = StoredVecDeque::<u16>::new(NAMESPACE);
 		let len = queue.len();
 		assert_eq!(len, 2);
 
@@ -410,37 +403,34 @@ mod tests {
 	#[test]
 	#[should_panic]
 	fn queue_length_broken() {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init().unwrap();
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
+
 		queue.push_back(&69).unwrap();
 		queue.push_front(&420).unwrap();
 
 		drop(queue);
 
-		let queue = StoredVecDeque::<u16>::new(NAMESPACE, storage);
+		let queue = StoredVecDeque::<u16>::new(NAMESPACE);
 		let len = queue.len();
 		assert_eq!(len, 2);
 
-		let queue = queue.iter().filter_map(Result::ok).collect::<VecDeque<u16>>();
+		let queue = queue.iter().filter_map(Result::ok).collect::<VecDeque<OZeroCopy<u16>>>();
 		assert_eq!(queue.len(), 2);
 	}
 
 	#[test]
-	fn clean_queue() {
-		let mut storage_ = MockStorage::new();
-		let storage = Rc::new(RefCell::new(&mut storage_ as &mut dyn Storage));
-		let storage = MaybeMutableStorage::new_mutable_shared(storage);
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+	fn clean_queue() -> TestingResult {
+		let _storage_lock = init()?;
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
 
 		queue.push_back(&69).unwrap();
 		queue.push_front(&420).unwrap();
 		queue.clear(true);
 		drop(queue);
 
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
-		let q: VecDeque<u16> = queue.iter().filter_map(Result::ok).collect();
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
+		let q: VecDeque<OZeroCopy<u16>> = queue.iter().filter_map(Result::ok).collect();
 		assert_eq!(q.len(), 0);
 
 		queue.push_back(&69).unwrap();
@@ -448,27 +438,29 @@ mod tests {
 		queue.clear(false);
 		drop(queue);
 
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
-		let q: VecDeque<u16> = queue.iter().filter_map(Result::ok).collect();
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
+		let q: VecDeque<OZeroCopy<u16>> = queue.iter().filter_map(Result::ok).collect();
 		assert_eq!(q.len(), 0);
 
 		queue.push_back(&69).unwrap();
 		queue.push_front(&420).unwrap();
 		drop(queue);
 
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage.clone());
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
 		queue.clear(false);
-		let q: VecDeque<u16> = queue.iter().filter_map(Result::ok).collect();
+		let q: VecDeque<OZeroCopy<u16>> = queue.iter().filter_map(Result::ok).collect();
 		assert_eq!(q.len(), 0);
 
 		queue.push_back(&69).unwrap();
 		queue.push_front(&420).unwrap();
 		drop(queue);
 
-		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE, storage);
+		let mut queue = StoredVecDeque::<u16>::new(NAMESPACE);
 		queue.clear(true);
-		let q: VecDeque<u16> = (&queue).into_iter().filter_map(Result::ok).collect();
+		let q: VecDeque<OZeroCopy<u16>> = (&queue).into_iter().filter_map(Result::ok).collect();
 		assert_eq!(q.len(), 0);
+
+		Ok(())
 	}
 
 	// #[test]

@@ -182,13 +182,14 @@ impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for Store
 
 #[cfg(test)]
 mod tests {
+	use crate::storage::testing_common::*;
 	use super::*;
 	use crate::storage::base::set_global_storage;
 	use cosmwasm_std::MemoryStorage;
 	#[test]
 	fn stored_map_iter() {
 		set_global_storage(Box::new(MemoryStorage::new()));
-		//let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
+		let _storage_lock = init().unwrap();
 
 		let stored_map = StoredMap::<String, String>::new(b"namespace");
 		stored_map.set(&"key1".to_string(), &"val1".to_string()).unwrap();
@@ -276,11 +277,9 @@ mod tests {
 	}
 
 	#[test]
-	fn basic() {
-		let tester_addr = Addr::unchecked("sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m");
-		let mut app = init_test_app(&tester_addr);
-		let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
-		let stored_map = StoredMap::<String, String>::new(NAMESPACE, storage.clone());
+	fn basic() -> TestingResult {
+		let _storage_lock = init()?;
+		let stored_map = StoredMap::<String, String>::new(NAMESPACE);
 
 		let key = String::from("key1");
 		let value = String::from("val1");
@@ -288,47 +287,45 @@ mod tests {
 		stored_map.set(&key, &value).unwrap();
 		assert!(stored_map.has(&key));
 		assert_eq!(stored_map.get(&"banana".to_string()).unwrap(), None);
-		assert_eq!(stored_map.get(&key).unwrap(), Some(value));
+		assert_eq!(stored_map.get(&key).unwrap(), Some(OZeroCopy::from_inner(value)));
+
+		Ok(())
 	}
 
 	#[test]
-	fn raw() {
-		let tester_addr = Addr::unchecked("sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m");
-		let mut app = init_test_app(&tester_addr);
-		let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
-		let stored_map = StoredMap::<[u8; 4], [u8; 4]>::new(NAMESPACE, storage.clone());
+	fn raw() -> TestingResult {
+		let _storage_lock = init()?;
+		let stored_map = StoredMap::<[u8; 4], [u8; 4]>::new(NAMESPACE);
 
 		let key = b"key1";
 		let value = b"val1";
 
 		stored_map.set_raw_bytes(key, value);
-		assert_eq!(stored_map.get(key).unwrap(), Some(value.to_owned()));
+		assert_eq!(stored_map.get(key).unwrap(), Some(OZeroCopy::from_inner(value.to_owned())));
 		assert_eq!(stored_map.get_raw_bytes(key), Some(b"val1".to_vec()));
+
+		Ok(())
 	}
 
 	// XXX: idk if that's unespected behavior
 	#[test]
 	#[should_panic]
 	fn panic_on_unknown_length() {
-		let tester_addr = Addr::unchecked("sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m");
-		let mut app = init_test_app(&tester_addr);
-		let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
-		let stored_map = StoredMap::<String, String>::new(NAMESPACE, storage.clone());
+		let _storage_lock = init().unwrap();
+		let stored_map = StoredMap::<String, String>::new(NAMESPACE);
 
 		let key = String::from("key1");
 		let value = String::from("val1");
 
 		stored_map.set_raw_bytes(&key, value.as_bytes());
 		stored_map.get_raw_bytes(&key).unwrap(); // SHOULD PANIC
-		assert!(false); // SHOULD NOT BE REACHED
+		assert!(true); // SHOULD NOT BE REACHED
 	}
 
 	#[test]
-	fn autosaving() {
-		let tester_addr = Addr::unchecked("sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m");
-		let mut app = init_test_app(&tester_addr);
-		let storage = MaybeMutableStorage::new_mutable_shared(Rc::new(RefCell::new(app.storage_mut())));
-		let stored_map = StoredMap::<String, String>::new(NAMESPACE, storage.clone());
+	fn autosaving() -> TestingResult {
+		let _storage_lock = init()?;
+		let stored_map = StoredMap::<String, String>::new(NAMESPACE);
 
 		let key = String::from("key1");
 		let fake_key = String::from("banana");
@@ -346,11 +343,13 @@ mod tests {
 		drop(v1);
 		drop(v2);
 
-		assert!(storage.get(&stored_map.key(&key)).is_some());
+		assert!(storage_has(&stored_map.key(&key)));
 		// XXX: expected behavior?
-		assert!(storage.get(&stored_map.key(&fake_key)).is_some());
+		assert!(storage_has(&stored_map.key(&fake_key)));
 
 		let v1 = stored_map.get(&key).unwrap().unwrap();
-		assert_eq!(v1, String::from("banana2"));
+		assert_eq!(*v1, String::from("banana2"));
+
+		Ok(())
 	}
 }
