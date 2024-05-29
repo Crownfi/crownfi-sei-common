@@ -3,8 +3,11 @@
  * @param e exception to check if it might be a transaction error
  * @returns whether or not it might be
  */
-export function isProbablyTxError(e: any): boolean {
-	return typeof e.message == "string" && e.message.match(/\.go\:\d+\]/m);
+export function isProbablyTxError(e: any): e is {name: string, message: string} {
+	return e != null &&
+		typeof e.name == "string" &&
+		typeof e.message == "string" &&
+		e.message.match(/\.go\:\d+\]/m);
 }
 
 /**

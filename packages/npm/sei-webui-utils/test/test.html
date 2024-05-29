@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Sei WebUI utils test</title>
+		<script src="./dist/main.js"></script>
+		<link rel="stylesheet" href="./dist/main.css">
+	</head>
+	<body>
+		<div style="display: flex; gap: 8px; margin: 4px; justify-content: flex-end;">
+			<button class="fantasy-ornamental danger" is="wallet-disconnect" aria-label="Disconnect Wallet"><span class="cicon cicon-size-medium cicon-logout cicon-gradient danger"></span></button>
+			<button class="fantasy-ornamental" is="wallet-options">Connect wallet</button>
+			<!--<button class="fantasy-ornamental"><span class="cicon cicon-size-medium cicon-gear cicon-gradient primary"></span></button>-->
+		</div>
+		<div inert id="main_loading_cover" aria-labelledby="main_loading_text">
+			<div class="main_loading_spinner" aria-label="Loading spinner">
+				<div class="main_loading_brand"></div>
+			</div>
+			<div id="main_loading_text"></div>
+		</div>
+	</body>
+</html>

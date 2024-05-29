@@ -47,12 +47,20 @@ export function parseStringifiedCoin(strCoin: string): [bigint, string] {
 	return [BigInt(strCoin), ""];
 }
 
+export type BalanceChangeOptions = {
+	includeCw20Transfers?: boolean,
+	includeErc20Transfers?: boolean
+}
 export type BalanceChangeResult = { [denom: string]: bigint };
 export function getBalanceChangesFor(
 	address: Addr,
 	events: Event[],
-	includeCw20Transfers: boolean = false
+	options: BalanceChangeOptions = {}
 ): BalanceChangeResult {
+	if (options.includeErc20Transfers) {
+		// https://docs.soliditylang.org/en/develop/abi-spec.html#events 
+		throw new Error("TODO: ERC20 transfer event inspection not implemented yet");
+	}
 	const result: BalanceChangeResult = {};
 	for (const event of events) {
 		if (event.type == "coin_spent") {
@@ -71,7 +79,7 @@ export function getBalanceChangesFor(
 				}
 				result[denom] += amount;
 			}
-		} else if (includeCw20Transfers && isCw20TransferEvent(event)) {
+		} else if (options.includeCw20Transfers && isCw20TransferEvent(event)) {
 			const denom = "cw20/" + event.attributes[0].value;
 			const amount = BigInt(event.attributes[4].value);
 			if (event.attributes[2].value == address) {

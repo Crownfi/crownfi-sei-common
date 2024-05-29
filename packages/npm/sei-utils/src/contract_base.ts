@@ -2,6 +2,8 @@ import { CosmWasmClient, ExecuteInstruction, SigningCosmWasmClient } from "@cosm
 import { Addr, ContractVersionInfo } from "./common_sei_types.js";
 import { Coin } from "@cosmjs/amino";
 import semverSatisfies from "semver/functions/satisfies.js";
+import { QueryClient as StargateQueryClient } from "@cosmjs/stargate";
+import { WasmExtension } from '@cosmjs/cosmwasm-stargate';
 
 const CONTRACT_INFO_KEY = Buffer.from("contract_info");
 
@@ -47,12 +49,12 @@ ContractVersionNotSatisfiedError.prototype.name = "ContractVersionNotSatisfiedEr
  */
 export class ContractBase {
 	address: Addr;
-	endpoint: CosmWasmClient;
+	endpoint: StargateQueryClient & WasmExtension;
 	/**
 	 * @param endpoint The cosmwasm client
 	 * @param address Contract address
 	 */
-	constructor(endpoint: CosmWasmClient, address: Addr) {
+	constructor(endpoint: StargateQueryClient & WasmExtension, address: Addr) {
 		this.endpoint = endpoint;
 		this.address = address;
 	}
@@ -60,7 +62,7 @@ export class ContractBase {
 	 * Reads contract state at key "contract_info" and returnes the parsed state if it exists.
 	 */
 	async getVersion(): Promise<ContractVersionInfo | null> {
-		const storedData = await this.endpoint.queryContractRaw(this.address, CONTRACT_INFO_KEY);
+		const storedData = (await this.endpoint.wasm.queryContractRaw(this.address, CONTRACT_INFO_KEY)).data;
 		if (storedData == null) {
 			return null;
 		}
@@ -86,8 +88,8 @@ export class ContractBase {
 	 * @param msg
 	 * @returns
 	 */
-	query(msg: any): Promise<any> {
-		return this.endpoint.queryContractSmart(this.address, msg);
+	async query(msg: any): Promise<any> {
+		return this.endpoint.wasm.queryContractSmart(this.address, msg);
 	}
 	executeIx(msg: any, funds?: Coin[]): ExecuteInstruction {
 		const result: ExecuteInstruction = {

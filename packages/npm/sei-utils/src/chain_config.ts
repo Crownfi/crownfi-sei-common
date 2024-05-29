@@ -1,9 +1,9 @@
+import { CometClient, connectComet } from "@cosmjs/tendermint-rpc";
 import { ClientEnv } from "./client_env.js";
 import { seiUtilEventEmitter } from "./events.js";
 
-export declare const KNOWN_SEI_NETWORKS: readonly ["sei-chain", "atlantic-2", "pacific-1"];
-export type KnownSeiChainId = (typeof KNOWN_SEI_NETWORKS)[number];
-export type SeiChainId = string | KnownSeiChainId;
+export declare const KNOWN_SEI_NETWORKS: readonly ["sei-chain", "arctic-1", "atlantic-2", "pacific-1"];
+export type SeiChainId = (typeof KNOWN_SEI_NETWORKS)[number];
 
 export type SeiChainNetConfig<C extends string = SeiChainId> = {
 	chainId: C;
@@ -11,23 +11,35 @@ export type SeiChainNetConfig<C extends string = SeiChainId> = {
 	restUrl: string;
 };
 
-const seiNetConfigs: { [chainId: SeiChainId]: SeiChainNetConfig<SeiChainId> } = {
+const seiNetConfigs = {
 	"sei-chain": {
-		chainId: "sei-chain",
+		chainId: "sei-chain" as const,
 		rpcUrl: "http://127.0.0.1:26657",
 		restUrl: "http://127.0.0.1:1317",
 	},
 	"atlantic-2": {
-		chainId: "atlantic-2",
+		chainId: "atlantic-2" as const,
 		rpcUrl: "https://rpc.atlantic-2.seinetwork.io/",
 		restUrl: "https://rest.atlantic-2.seinetwork.io/",
 	},
+	"arctic-1": {
+		chainId: "arctic-1" as const,
+		rpcUrl: "https://rpc-arctic-1.sei-apis.com/",
+		restUrl: "https://rest-arctic-1.sei-apis.com/",
+	},
 	// This is temporary until we set up our own
 	"pacific-1": {
-		chainId: "pacific-1",
-		rpcUrl: "https://sei-rpc.polkachu.com/",
-		restUrl: "https://sei-api.polkachu.com/",
+		chainId: "pacific-1" as const,
+		rpcUrl: "https://rpc.sei-apis.com",
+		restUrl: "https://rest.sei-apis.com",
 	},
+};
+
+const cachedCometClients: Record<SeiChainId, Promise<CometClient> | null> = {
+	"arctic-1": null,
+	"atlantic-2": null,
+	"pacific-1": null,
+	"sei-chain": null
 };
 
 /**
@@ -35,13 +47,17 @@ const seiNetConfigs: { [chainId: SeiChainId]: SeiChainNetConfig<SeiChainId> } = 
  * This can also be used to change the endpoints for a public chain.
  * @param configs
  */
-export function setNetworkConfig(...configs: SeiChainNetConfig[]) {
+export function setNetworkConfig<C extends SeiChainId>(...configs: SeiChainNetConfig<C>[]) {
 	for (let i = 0; i < configs.length; i += 1) {
-		seiNetConfigs[configs[i].chainId] = configs[i];
+		const config = configs[i];
+		const chainId = config.chainId;
+		seiNetConfigs[chainId] = config as any;
+		cachedCometClients[chainId] = null;
 	}
 }
 
-let defaultNetwork = "pacific-1";
+let defaultNetwork: SeiChainId = "pacific-1";
+
 /**
  * Sets the default network.
  * Note that changing the default network will change the default sei provider to null.
@@ -54,7 +70,7 @@ export function setDefaultNetwork(network: SeiChainId) {
 	const oldNetwork = defaultNetwork;
 	defaultNetwork = network;
 	if (defaultNetwork != oldNetwork) {
-		seiUtilEventEmitter.emit("defaultNetworkChanged", getDefaultNetworkConfig());
+		seiUtilEventEmitter.emit("defaultNetworkChanged", Object.freeze(getDefaultNetworkConfig()));
 		ClientEnv.nullifyDefaultProvider();
 	}
 }
@@ -69,5 +85,18 @@ export function getNetworkConfig<C extends SeiChainId>(network: C): SeiChainNetC
 
 export function getDefaultNetworkConfig(): SeiChainNetConfig {
 	// This should never be undefined since setDefaultNetwork checks the default network
-	return seiNetConfigs[defaultNetwork];
+	return {...seiNetConfigs[defaultNetwork]};
+}
+
+/**
+ * Returns a cached comet client associated with the network
+ * 
+ * @param network 
+ * @returns A comet client
+ */
+export async function getCometClient(network: SeiChainId): Promise<CometClient> {
+	if (cachedCometClients[network] == null) {
+		cachedCometClients[network] = connectComet(seiNetConfigs[defaultNetwork].rpcUrl);
+	}
+	return cachedCometClients[network]!;
 }

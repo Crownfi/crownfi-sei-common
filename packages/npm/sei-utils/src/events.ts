@@ -2,8 +2,7 @@ import { TinyEmitter } from "tiny-emitter";
 import { DeliverTxResponse } from "@cosmjs/cosmwasm-stargate";
 import { Addr } from "./common_sei_types.js";
 import { SeiChainId, SeiChainNetConfig } from "./chain_config.js";
-import { MaybeSelectedProviderString } from "./client_env.js";
-import { AccountData } from "@cosmjs/amino";
+import { SeiClientAccountData, MaybeSelectedProviderString } from "./client_env.js";
 
 // Events with generics inspired from https://github.com/scottcorgan/tiny-emitter/pull/42
 type Arguments<T> = [T] extends [(...args: infer U) => any] ? U : [T] extends [void] ? [] : [T];
@@ -33,7 +32,7 @@ interface SeiUtilEvents {
 	}) => void;
 	defaultProviderChanged: (ev: {
 		chainId: SeiChainId;
-		account: AccountData | null;
+		account: SeiClientAccountData | null;
 		provider: MaybeSelectedProviderString;
 	}) => void;
 }

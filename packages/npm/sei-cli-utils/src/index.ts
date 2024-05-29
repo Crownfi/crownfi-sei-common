@@ -1,5 +1,5 @@
 import { Coin, GasPrice } from "@cosmjs/stargate";
-import { ClientEnv, getDefaultNetworkConfig, setDefaultNetwork } from "@crownfi/sei-utils";
+import { ClientEnv, SeiChainId, getDefaultNetworkConfig, setDefaultNetwork } from "@crownfi/sei-utils";
 import { spawn } from "promisify-child-process";
 
 /**
@@ -13,7 +13,7 @@ import { spawn } from "promisify-child-process";
  */
 export async function applyEnvVarsToDefaultClientEnv() {
 	if (process.env.CHAIN_ID) {
-		setDefaultNetwork(process.env.CHAIN_ID);
+		setDefaultNetwork(process.env.CHAIN_ID as SeiChainId);
 	} else {
 		console.warn("Env var CHAIN_ID not set! Defaulting to:", getDefaultNetworkConfig().chainId);
 	}
@@ -66,7 +66,7 @@ export async function fundFromLocalKeychain(fromName: string, toClient: ClientEn
 			"bank",
 			"send",
 			adminAddress,
-			toClient.getAccount().address,
+			toClient.getAccount().seiAddress,
 			amountAsString,
 			"--yes",
 			"--gas-prices",
