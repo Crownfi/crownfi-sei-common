@@ -34,7 +34,7 @@ impl OwnedRegion {
 		if region.offset.is_null() {
 			return None;
 		}
-		Some(OwnedRegion { ..*region })
+		Some(*region)
 	}
 }
 impl From<Vec<u8>> for OwnedRegion {
