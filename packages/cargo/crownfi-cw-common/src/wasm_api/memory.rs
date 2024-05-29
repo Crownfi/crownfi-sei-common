@@ -52,12 +52,17 @@ impl From<Vec<u8>> for OwnedRegion {
 }
 impl From<OwnedRegion> for Vec<u8> {
 	fn from(value: OwnedRegion) -> Self {
+		assert!(!value.offset.is_null(), "Attempted to convert a null OwnedRegion to a Vec<u8>!");
 		// SAFTY: It is assumed that this OwnedRegion was either created by the runtime or by using From<Vec<u8>>
 		unsafe { Vec::from_raw_parts(value.offset, value.length, value.capacity) }
 	}
 }
 impl Drop for OwnedRegion {
 	fn drop(&mut self) {
+		if self.offset.is_null() {
+			// We're probably here because of OwnedRegion::from_ptr returning None.
+			return;
+		}
 		// Run Vec's destructor
 		drop(
 			// SAFTY: It is assumed that this OwnedRegion was either created by the runtime or by using From<Vec<u8>>
