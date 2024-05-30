@@ -45,7 +45,7 @@ pub fn storage_write(key: &[u8], value: &[u8]) {
 		panic!("The storage backend cannot properly differentiate between empty values and non-existant values, use storage_remove instead.");
 	}
 	let key_as_region = ConstRegion::new(key);
-	let value_as_region = ConstRegion::new(key);
+	let value_as_region = ConstRegion::new(value);
 	// SAFTY:
 	// * It is assumed that the key_as_region passed to wasmvm_db_write will not be edited or used beyond this call.
 	// * It is assumed that the value_as_region passed to wasmvm_db_write will not be edited or used beyond this call.
