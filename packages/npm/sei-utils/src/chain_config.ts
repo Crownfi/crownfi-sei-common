@@ -1,12 +1,14 @@
 import { CometClient, connectComet } from "@cosmjs/tendermint-rpc";
 import { ClientEnv } from "./client_env.js";
 import { seiUtilEventEmitter } from "./events.js";
+import { NetworkEndpointNotConfiguredError } from "./error.js";
 
 export declare const KNOWN_SEI_NETWORKS: readonly ["sei-chain", "arctic-1", "atlantic-2", "pacific-1"];
 export type SeiChainId = (typeof KNOWN_SEI_NETWORKS)[number];
 
 export type SeiChainNetConfig<C extends string = SeiChainId> = {
 	chainId: C;
+	evmChainId: number,
 	rpcUrl: string;
 	restUrl: string;
 };
@@ -16,22 +18,29 @@ const seiNetConfigs = {
 		chainId: "sei-chain" as const,
 		rpcUrl: "http://127.0.0.1:26657",
 		restUrl: "http://127.0.0.1:1317",
-	},
-	"atlantic-2": {
-		chainId: "atlantic-2" as const,
-		rpcUrl: "https://rpc.atlantic-2.seinetwork.io/",
-		restUrl: "https://rest.atlantic-2.seinetwork.io/",
+		evmChainId: 0xae3f3,
+		evmUrl: "http://127.0.0.1:8545"
 	},
 	"arctic-1": {
 		chainId: "arctic-1" as const,
 		rpcUrl: "https://rpc-arctic-1.sei-apis.com/",
 		restUrl: "https://rest-arctic-1.sei-apis.com/",
+		evmChainId: 0xae3f3,
+	},
+	"atlantic-2": {
+		chainId: "atlantic-2" as const,
+		rpcUrl: "https://rpc.atlantic-2.seinetwork.io/",
+		restUrl: "https://rest.atlantic-2.seinetwork.io/",
+		evmChainId: 0x530,
+		evmUrl: "https://evm-rpc-testnet.sei-apis.com/"
 	},
 	// This is temporary until we set up our own
 	"pacific-1": {
 		chainId: "pacific-1" as const,
 		rpcUrl: "https://rpc.sei-apis.com",
 		restUrl: "https://rest.sei-apis.com",
+		evmChainId: 0x531,
+		evmUrl: "https://evm-rpc.sei-apis.com/"
 	},
 };
 
@@ -65,13 +74,13 @@ let defaultNetwork: SeiChainId = "pacific-1";
  */
 export function setDefaultNetwork(network: SeiChainId) {
 	if (seiNetConfigs[network] == null) {
-		throw new Error("Cannot set the default network to that which has no endpoint configuration");
+		throw new NetworkEndpointNotConfiguredError(network, defaultNetwork);
 	}
-	const oldNetwork = defaultNetwork;
-	defaultNetwork = network;
-	if (defaultNetwork != oldNetwork) {
-		seiUtilEventEmitter.emit("defaultNetworkChanged", Object.freeze(getDefaultNetworkConfig()));
+	if (network != defaultNetwork) {
 		ClientEnv.nullifyDefaultProvider();
+		defaultNetwork = network;
+		seiUtilEventEmitter.emit("defaultNetworkChanged", Object.freeze(getDefaultNetworkConfig()));
+		
 	}
 }
 

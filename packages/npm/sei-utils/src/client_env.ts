@@ -146,8 +146,16 @@ async function tryGetAccountDataFromAddress(queryClient: SeiQueryClient, seiOrEv
 
 
 
-export type MaybeSelectedProviderString = KnownSeiProviders | "seed-wallet" | "read-only-address" | null;
-export type MaybeSelectedProvider = KnownSeiProviders | { seed: string; index?: number } | { address: string } | null;
+export type MaybeSelectedProviderString = KnownSeiProviders |
+	"ethereum" |
+	"seed-wallet" |
+	"read-only-address" |
+	null;
+export type MaybeSelectedProvider = KnownSeiProviders |
+	"ethereum" |
+	{ seed: string; index?: number, cointype?: number } |
+	{ address: string } |
+	null;
 
 
 const DEFAULT_TX_TIMEOUT_MS = 60000;
@@ -198,13 +206,25 @@ export class ClientEnv {
 	 */
 	static nullifyDefaultProvider() {
 		if (defaultProvider != null) {
+			const chainId = getDefaultNetworkConfig().chainId;
+			if (typeof defaultProvider == "string") {
+				if (defaultProvider == "ethereum") {
+					throw new Error("TODO: Ethereum client handling");
+				} else {
+					try {
+						new SeiWallet(defaultProvider).disconnect(chainId).catch((_) => {});
+					}catch(ex: any) {
+						// We're informing the wallet as a courtesy, we don't care what they have to say about it.
+					}
+				}
+			}
 			defaultProvider = null;
 			seiUtilEventEmitter.emit("defaultProviderChangeRequest", {
 				status: "success",
 				provider: null,
 			});
 			seiUtilEventEmitter.emit("defaultProviderChanged", {
-				chainId: getDefaultNetworkConfig().chainId,
+				chainId: chainId,
 				provider: null,
 				account: null,
 			});
@@ -217,6 +237,7 @@ export class ClientEnv {
 		return defaultGasPrice;
 	}
 	static async setDefaultProvider(provider: MaybeSelectedProvider, dontThrowOnFail: boolean = false) {
+		const chainId = getDefaultNetworkConfig().chainId;
 		const oldProvider = defaultProvider;
 		defaultProvider = provider;
 		if (oldProvider == defaultProvider) {
@@ -228,7 +249,8 @@ export class ClientEnv {
 				oldProvider != null &&
 				(defaultProvider as any).address == (oldProvider as any).address &&
 				(defaultProvider as any).seed == (oldProvider as any).seed &&
-				(defaultProvider as any).index == (oldProvider as any).index
+				(defaultProvider as any).index == (oldProvider as any).index &&
+				(defaultProvider as any).cointype == (oldProvider as any).cointype
 			) {
 				return;
 			}
@@ -240,10 +262,21 @@ export class ClientEnv {
 				provider: newProviderString,
 			});
 			seiUtilEventEmitter.emit("defaultProviderChanged", {
-				chainId: getDefaultNetworkConfig().chainId,
+				chainId,
 				provider: newProviderString,
 				account: null,
 			});
+			if (typeof oldProvider == "string") {
+				if (oldProvider == "ethereum") {
+					throw new Error("TODO: Ethereum client handling");
+				} else {
+					try {
+						new SeiWallet(oldProvider).disconnect(chainId).catch((_) => {});
+					}catch(ex: any) {
+						// We're informing the wallet as a courtesy, we don't care what they have to say about it.
+					}
+				}
+			}
 		} else {
 			try {
 				seiUtilEventEmitter.emit("defaultProviderChangeRequest", {
@@ -257,7 +290,7 @@ export class ClientEnv {
 					provider: newProviderString,
 				});
 				seiUtilEventEmitter.emit("defaultProviderChanged", {
-					chainId: getDefaultNetworkConfig().chainId,
+					chainId,
 					provider: newProviderString,
 					account: clientAccount,
 				});
@@ -288,12 +321,15 @@ export class ClientEnv {
 				// async imports allow us to load the signing stuff only if needed. (hopefully)
 				const { restoreWallet } = await import("@crownfi/sei-js-core");
 				return {
-					signer: await restoreWallet(provider.seed, provider.index),
+					signer: await restoreWallet(provider.seed, provider.index, provider.cointype),
 				};
 			}
 			return {
 				address: provider.address,
 			};
+		}
+		if (provider == "ethereum") {
+			throw new Error("TODO: Check if local storage exists and check it for matching pubkey, else, ask the user to sign something so we can get the pubkey")
 		}
 		try {
 			const signer = await new SeiWallet(provider).getOfflineSigner(chainId);

@@ -110,6 +110,12 @@ function typeAndNameToComponent(typeString: string): EVMABITupleComponent {
 			type: typeString.trim()
 		};
 	}
+	if (lastSpace == -1) {
+        return {
+            name: "",
+            type: typeString
+        }
+    }
 	return {
 		name: typeString.substring(lastSpace) || "",
 		type: typeString.substring(0, lastSpace).trim()
@@ -141,10 +147,11 @@ export function normalizeTupleComponent(abiDef: EVMABITupleComponent): EVMABITup
 	}
 	let innerTuplesLevel = 0;
 	let curType = "";
+	const oldType = abiDef.type;
 	abiDef.type = isArray ? "tuple[]" : "tuple";
 	abiDef.components = [];
-	for (let i = 1; i < abiDef.type.length - (isArray ? 3 : 1); i += 1) {
-		const char = abiDef.type[i];
+	for (let i = 1; i < oldType.length - (isArray ? 3 : 1); i += 1) {
+		const char = oldType[i];
 		if (innerTuplesLevel > 0) {
 			curType += char;
 			if (char == ")") {
@@ -162,12 +169,12 @@ export function normalizeTupleComponent(abiDef: EVMABITupleComponent): EVMABITup
 			continue;
 		}
 		abiDef.components.push(
-			normalizeTupleComponent(typeAndNameToComponent(curType))
+			normalizeTupleComponent(typeAndNameToComponent(curType.trim()))
 		);
 		curType = "";
 	}
 	abiDef.components.push(
-		normalizeTupleComponent(typeAndNameToComponent(curType))
+		normalizeTupleComponent(typeAndNameToComponent(curType.trim()))
 	);
 	return abiDef;
 }

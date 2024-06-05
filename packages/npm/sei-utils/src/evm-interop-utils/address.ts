@@ -72,5 +72,3 @@ export function isValidEvmAddress(address: string, lenient: boolean = false){
 	}
 	return isValidEvmAddressChecksum(address);
 };
-
-module.exports = {toChecksumAddressEvm, isValidEvmAddress};

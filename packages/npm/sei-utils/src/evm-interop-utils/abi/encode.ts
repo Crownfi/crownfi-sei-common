@@ -4,6 +4,7 @@ import { isValidEvmAddress } from "../address.js";
 const GURAD_BYTES = Buffer.from("fefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe", "hex");
 import { keccak256 } from "keccak-wasm";
 import { EVMABIFunctionDefinition, EVMABITupleComponent, NULL_BYTES, ONE_BYTE, UINT256_MAX, UINT256_SIZE, encodedArrayType, functionSignatureToABIDefinition, normalizeTupleComponent, tupleComponentsTypeSignature } from "./common.js";
+import { stringToCanonicalAddr } from "@crownfi/sei-js-core";
 
 // Encoding functions
 const encodeBoolean = function(bool: any): Buffer {
@@ -102,6 +103,25 @@ const encodeDecimal = function(num: any, decimalExponent: number) {
 }
 
 const encodeAddress = function(maybeAddress: any): Buffer {
+	// Hack for encoding cosmwasm contracts
+	if (typeof maybeAddress == "string" && maybeAddress.startsWith("sei1")) {
+		maybeAddress = stringToCanonicalAddr(maybeAddress);
+		if (maybeAddress.length != 32) {
+			throw new Error(
+				"sei1* addresses can only passed directly to the EVM payload decoder if they're contract addresses"
+			)
+		}
+	}
+	if (maybeAddress instanceof Uint8Array) {
+		if (maybeAddress.length != 32) {
+			throw new TypeError("Can only pass buffers directly into the address param if they're 32 bytes long");
+		}
+		if (Buffer.isBuffer(maybeAddress)) {
+			return maybeAddress;
+		} else {
+			return Buffer.from(maybeAddress);
+		}
+	}
 	const address = maybeAddress + "";
 	if (!isValidEvmAddress(address)) {
 		throw new TypeError("\"" + address + "\" is not a valid EVM address.");
