@@ -1,6 +1,6 @@
 {
 	"name": "@crownfi/sei-cli-utils",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"main": "dist/index.js",
 	"type": "module",
 	"license": "UNLICENSED",
@@ -13,7 +13,7 @@
 		"@cosmjs/proto-signing": "^0.32.3",
 		"@cosmjs/stargate": "^0.32.3",
 		"@crownfi/sei-js-core": "^5.2.0",
-		"@crownfi/sei-utils": "^0.3.0",
+		"@crownfi/sei-utils": "^0.3.4",
 		"semver": "^7.6.2",
 		"promisify-child-process": "^4.1.2"
 	},
