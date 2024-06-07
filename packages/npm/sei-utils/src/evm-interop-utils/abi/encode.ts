@@ -149,6 +149,9 @@ const encodeFunction = function(contractFunc: any){
 };
 
 const encodeFixedBuffer = function(maybeBuf: any, expectedLength: number): Buffer {
+	if (typeof maybeBuf == "string" && maybeBuf.startsWith("0x")) {
+		maybeBuf = Buffer.from(maybeBuf.substring(2), "hex");
+	}
 	if (!Buffer.isBuffer(maybeBuf)) {
 		try {
 			maybeBuf = Buffer.from(maybeBuf);
@@ -172,7 +175,10 @@ const encodeFixedBuffer = function(maybeBuf: any, expectedLength: number): Buffe
 	return Buffer.concat([buff, new Uint8Array(32 - buff.length)], 32);
 };
 
-const encodeBuffer = function(maybeBuf: Buffer): {requiresPointer: Buffer} {
+const encodeBuffer = function(maybeBuf: any): {requiresPointer: Buffer} {
+	if (typeof maybeBuf == "string" && maybeBuf.startsWith("0x")) {
+		maybeBuf = Buffer.from(maybeBuf.substring(2), "hex");
+	}
 	if (!Buffer.isBuffer(maybeBuf)) {
 		try {
 			maybeBuf = Buffer.from(maybeBuf);

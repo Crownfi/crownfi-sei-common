@@ -2,11 +2,13 @@
 	"name": "@crownfi/sei-webui-utils",
 	"version": "0.3.0",
 	"main": "dist/index.js",
+	"style": "styles/index.css",
 	"type": "module",
 	"license": "UNLICENSED",
 	"scripts": {
 		"build": "rm -rf dist/* && mkdir -p dist && tsc",
 		"start": "http-server -p 8080 -c-1 ./test",
+		"codegen": "cewt codegen --inline-html --extended-form-controls ./src",
 		"build:test": "rm -rf test/dist/* && mkdir -p dist && npm run build:test:webpack",
 		"build:test:webpack": "webpack --mode=development"
 	},
@@ -15,11 +17,11 @@
 		"@cosmjs/cosmwasm-stargate": "^0.32.2",
 		"@cosmjs/proto-signing": "^0.32.2",
 		"@cosmjs/stargate": "^0.32.2",
-		"@crownfi/sei-js-core": "^5.2.0",
+		"@crownfi/sei-js-core": "^5.2.3",
 		"@crownfi/sei-utils": "^0.3.0",
-		"@crownfi/css-gothic-fantasy": "^1.1.0",
+		"@crownfi/css-gothic-fantasy": "^1.4.3",
 		"@aritz-cracker/browser-utils": "^1.2.3",
-		"dropdown-menu-element": "^1.1.2"
+		"dropdown-menu-element": "^1.1.3"
 	},
 	"devDependencies": {
 		"buffer-lite": "^2.1.0",
@@ -39,6 +41,7 @@
 		"registry": "https://npm.crownfi.io"
 	},
 	"files": [
-		"dist"
+		"dist",
+		"styles"
 	]
 }

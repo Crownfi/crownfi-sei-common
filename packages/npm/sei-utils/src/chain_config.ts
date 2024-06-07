@@ -11,6 +11,7 @@ export type SeiChainNetConfig<C extends string = SeiChainId> = {
 	evmChainId: number,
 	rpcUrl: string;
 	restUrl: string;
+	evmUrl: string;
 };
 
 const seiNetConfigs = {
@@ -26,6 +27,7 @@ const seiNetConfigs = {
 		rpcUrl: "https://rpc-arctic-1.sei-apis.com/",
 		restUrl: "https://rest-arctic-1.sei-apis.com/",
 		evmChainId: 0xae3f3,
+		evmUrl: "https://evm-rpc-arctic-1.sei-apis.com"
 	},
 	"atlantic-2": {
 		chainId: "atlantic-2" as const,
@@ -105,7 +107,10 @@ export function getDefaultNetworkConfig(): SeiChainNetConfig {
  */
 export async function getCometClient(network: SeiChainId): Promise<CometClient> {
 	if (cachedCometClients[network] == null) {
-		cachedCometClients[network] = connectComet(seiNetConfigs[defaultNetwork].rpcUrl);
+		if (seiNetConfigs[network] == null) {
+			throw new NetworkEndpointNotConfiguredError(network, defaultNetwork);
+		}
+		cachedCometClients[network] = connectComet(seiNetConfigs[network].rpcUrl);
 	}
 	return cachedCometClients[network]!;
 }

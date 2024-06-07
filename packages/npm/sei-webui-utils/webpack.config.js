@@ -8,7 +8,7 @@ const __dirname = import.meta.dirname;
 export default (env, argv) => {
 	const config = {
 		entry: {
-			"main": ["./src/index.ts", "./test/style.css"]
+			"main": ["./src/_test_entrypoint.ts", "./test/style.css"]
 		},
 		module: {
 			rules: [

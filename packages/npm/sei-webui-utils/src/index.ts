@@ -1,4 +1,4 @@
 import "@crownfi/css-gothic-fantasy";
 // Register the elements
-import "./buttons.js";
-import "./modals.js";
+import "./error.js";
+export * from "./wallet_select.js";

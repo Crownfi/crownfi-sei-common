@@ -36,3 +36,27 @@ class EVMContractRevertError extends Error {
 	name!: "EVMContractRevertError";
 }
 EVMContractRevertError.prototype.name = "EVMContractRevertError";
+
+export class AssociatedEvmAddressNotFoundError extends Error {
+	name!: "AssociatedEvmAddressNotFoundError";
+	seiAddress: string;
+	constructor(seiAddress: string) {
+		// Fallback chain not in the message as that's only relevant if you catch the error.
+		super("Unable to find EVM address for " + seiAddress);
+		this.seiAddress = seiAddress;
+	}
+}
+AssociatedEvmAddressNotFoundError.prototype.name = "AssociatedEvmAddressNotFoundError";
+
+export class EvmAddressValidationMismatchError extends Error {
+	name!: "EvmAddressValidationMismatchError";
+	expected: string;
+	actual: string;
+	constructor(expected: string, actual: string) {
+		// Fallback chain not in the message as that's only relevant if you catch the error.
+		super("Address \"" + expected + "\" was expected but it was actually \"" + actual + "\"");
+		this.expected = expected;
+		this.actual = actual;
+	}
+}
+EvmAddressValidationMismatchError.prototype.name = "EvmAddressValidationMismatchError";

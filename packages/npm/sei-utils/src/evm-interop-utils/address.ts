@@ -3,7 +3,7 @@ import { normalizePubkey } from "@crownfi/sei-js-core/dist/lib/utils/address.js"
 import { keccak256ToHex } from "keccak-wasm";
 
 export function getEvmAddressFromPubkey(pubkey: Uint8Array): string {
-	return toChecksumAddressEvm("0x" + keccak256ToHex(normalizePubkey(pubkey, true)).substring(0, 40));
+	return toChecksumAddressEvm("0x" + keccak256ToHex(normalizePubkey(pubkey, true).subarray(1)).substring(24, 64));
 }
 
 /**

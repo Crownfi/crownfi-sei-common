@@ -1,6 +1,6 @@
 {
 	"name": "@crownfi/sei-utils",
-	"version": "0.3.3",
+	"version": "0.3.4",
 	"main": "dist/index.js",
 	"type": "module",
 	"license": "UNLICENSED",
@@ -12,6 +12,7 @@
 		"@cosmjs/proto-signing": "^0.32.2",
 		"@cosmjs/tendermint-rpc": "^0.32.2",
 		"@cosmjs/stargate": "^0.32.2",
+		"@crownfi/ethereum-rpc-types": "^0.1.1",
 		"@crownfi/sei-js-core": "^5.2.3",
 		"keccak-wasm": "^0.11.2",
 		"semver": "^7.6.2",

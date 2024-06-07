@@ -7,8 +7,8 @@ export type EVMABIFunctionType = "function" | "constructor" | "receive" | "fallb
 export type EVMABIFunctionStateAccess = "pure" | "view" | "nonpayable" | "payable";
 export interface EVMABIFunctionDefinition {
 	name: string,
-	type: EVMABIFunctionType,
 	// Note, "receive" has no payload by definition
+	type: EVMABIFunctionType,
 	inputs: EVMABITupleComponent[],
 	outputs: EVMABITupleComponent[],
 	stateMutability: EVMABIFunctionStateAccess
@@ -31,13 +31,12 @@ export function tupleComponentsTypeSignature(abiDefs: EVMABITupleComponent[]): s
 }
 
 function fullTupleSubstring(str: string): [string, string, string] {
-	let bracketCount = 1;
+	let bracketCount = 0;
 	let index = str.indexOf("(");
 	if (index == -1) {
 		return ["", "", str];
 	}
 	const start = str.substring(0, index);
-	index -= 1;
 	while (index < str.length) {
 		const char = str[index];
 		switch(char) {
@@ -69,7 +68,7 @@ export function functionSignatureToABIDefinition(sig: string): EVMABIFunctionDef
 	const [modifiers, outputs, rest] = fullTupleSubstring(modifiersAndOutput);
 
 	const inputAsComponent = normalizeTupleComponent({name: "arg", type: inputs});
-	const outputAsComponent = modifiers.endsWith("returns") ?
+	const outputAsComponent = !modifiers.endsWith("returns") ?
 			{
 				name: "",
 				type: "tuple",
@@ -117,7 +116,7 @@ function typeAndNameToComponent(typeString: string): EVMABITupleComponent {
         }
     }
 	return {
-		name: typeString.substring(lastSpace) || "",
+		name: typeString.substring(lastSpace).trim() || "",
 		type: typeString.substring(0, lastSpace).trim()
 	};
 }
