@@ -13,6 +13,7 @@ impl SchemaStructExtentions for Schema {
 	}
 }
 
+#[allow(dead_code)]
 pub(crate) trait SingleOrVecStructExtentions<T> {
 	/// Checks if this is a Single
 	fn is_single(&self) -> bool;
