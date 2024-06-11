@@ -1,11 +1,23 @@
-import { CosmWasmClient, ExecuteInstruction, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { ExecuteInstruction as WasmExecuteInstruction } from "@cosmjs/cosmwasm-stargate";
 import { Addr, ContractVersionInfo } from "./common_sei_types.js";
 import { Coin } from "@cosmjs/amino";
 import semverSatisfies from "semver/functions/satisfies.js";
 import { QueryClient as StargateQueryClient } from "@cosmjs/stargate";
 import { WasmExtension } from '@cosmjs/cosmwasm-stargate';
+import { EVMABIFunctionDefinition } from "./evm-interop-utils/index.js";
 
 const CONTRACT_INFO_KEY = Buffer.from("contract_info");
+
+export interface EvmExecuteInstruction {
+	contractAddress: string;
+	evmMsg: {
+		function: string | EVMABIFunctionDefinition
+		params: any[],
+		funds?: bigint
+	};
+}
+
+export type EvmOrWasmExecuteInstruction = EvmExecuteInstruction | WasmExecuteInstruction;
 
 export class ContractVersionNotSatisfiedError extends Error {
 	name!: "ContractVersionNotSatisfiedError";
@@ -91,8 +103,8 @@ export class ContractBase {
 	async query(msg: any): Promise<any> {
 		return this.endpoint.wasm.queryContractSmart(this.address, msg);
 	}
-	executeIx(msg: any, funds?: Coin[]): ExecuteInstruction {
-		const result: ExecuteInstruction = {
+	executeIx(msg: any, funds?: Coin[]): WasmExecuteInstruction {
+		const result: WasmExecuteInstruction = {
 			contractAddress: this.address,
 			msg,
 		};
@@ -101,7 +113,7 @@ export class ContractBase {
 		}
 		return result;
 	}
-	executeIxCw20(msg: any, tokenContractOrUnifiedDenom: string, amount: string | bigint | number): ExecuteInstruction {
+	executeIxCw20(msg: any, tokenContractOrUnifiedDenom: string, amount: string | bigint | number): WasmExecuteInstruction {
 		if (tokenContractOrUnifiedDenom.startsWith("cw20/")) {
 			tokenContractOrUnifiedDenom = tokenContractOrUnifiedDenom.substring(5); // "cw20/".length
 		}

@@ -7,8 +7,8 @@ export type EVMABIFunctionType = "function" | "constructor" | "receive" | "fallb
 export type EVMABIFunctionStateAccess = "pure" | "view" | "nonpayable" | "payable";
 export interface EVMABIFunctionDefinition {
 	name: string,
-	type: EVMABIFunctionType,
 	// Note, "receive" has no payload by definition
+	type: EVMABIFunctionType,
 	inputs: EVMABITupleComponent[],
 	outputs: EVMABITupleComponent[],
 	stateMutability: EVMABIFunctionStateAccess
@@ -31,13 +31,12 @@ export function tupleComponentsTypeSignature(abiDefs: EVMABITupleComponent[]): s
 }
 
 function fullTupleSubstring(str: string): [string, string, string] {
-	let bracketCount = 1;
+	let bracketCount = 0;
 	let index = str.indexOf("(");
 	if (index == -1) {
 		return ["", "", str];
 	}
 	const start = str.substring(0, index);
-	index -= 1;
 	while (index < str.length) {
 		const char = str[index];
 		switch(char) {
@@ -69,7 +68,7 @@ export function functionSignatureToABIDefinition(sig: string): EVMABIFunctionDef
 	const [modifiers, outputs, rest] = fullTupleSubstring(modifiersAndOutput);
 
 	const inputAsComponent = normalizeTupleComponent({name: "arg", type: inputs});
-	const outputAsComponent = modifiers.endsWith("returns") ?
+	const outputAsComponent = !modifiers.endsWith("returns") ?
 			{
 				name: "",
 				type: "tuple",
@@ -110,8 +109,14 @@ function typeAndNameToComponent(typeString: string): EVMABITupleComponent {
 			type: typeString.trim()
 		};
 	}
+	if (lastSpace == -1) {
+        return {
+            name: "",
+            type: typeString
+        }
+    }
 	return {
-		name: typeString.substring(lastSpace) || "",
+		name: typeString.substring(lastSpace).trim() || "",
 		type: typeString.substring(0, lastSpace).trim()
 	};
 }
@@ -141,10 +146,11 @@ export function normalizeTupleComponent(abiDef: EVMABITupleComponent): EVMABITup
 	}
 	let innerTuplesLevel = 0;
 	let curType = "";
+	const oldType = abiDef.type;
 	abiDef.type = isArray ? "tuple[]" : "tuple";
 	abiDef.components = [];
-	for (let i = 1; i < abiDef.type.length - (isArray ? 3 : 1); i += 1) {
-		const char = abiDef.type[i];
+	for (let i = 1; i < oldType.length - (isArray ? 3 : 1); i += 1) {
+		const char = oldType[i];
 		if (innerTuplesLevel > 0) {
 			curType += char;
 			if (char == ")") {
@@ -162,12 +168,12 @@ export function normalizeTupleComponent(abiDef: EVMABITupleComponent): EVMABITup
 			continue;
 		}
 		abiDef.components.push(
-			normalizeTupleComponent(typeAndNameToComponent(curType))
+			normalizeTupleComponent(typeAndNameToComponent(curType.trim()))
 		);
 		curType = "";
 	}
 	abiDef.components.push(
-		normalizeTupleComponent(typeAndNameToComponent(curType))
+		normalizeTupleComponent(typeAndNameToComponent(curType.trim()))
 	);
 	return abiDef;
 }

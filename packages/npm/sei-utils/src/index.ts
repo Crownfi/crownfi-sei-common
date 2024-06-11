@@ -7,3 +7,4 @@ export * from "./events_util.js";
 export * from "./events.js";
 export * from "./funds_util.js";
 export * from "./tx_util.js";
+export * from "./evm-interop-utils/index.js";

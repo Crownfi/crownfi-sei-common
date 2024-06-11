@@ -1,0 +1,40 @@
+.wallet-choices {
+	display: flex;
+	flex-direction: column;
+	align-self: stretch;
+}
+.wallet-choices button[is="wallet-choice"] {
+	flex-grow: 1;
+}
+button[is="wallet-choice"] {
+	display: flex;
+	margin: 8px 0px;
+	justify-content: left;
+	align-items: center;
+	padding: 2px;
+	/*padding-left: 8px;*/
+}
+button[is="wallet-choice"] img {
+	width: 32px;
+	margin: 2px;
+	border-radius: 6px;
+}
+button[is="wallet-choice"] span {
+	font-size: 12px;
+	font-style: italic;
+	text-align: left;
+}
+button[is="wallet-choice"] span::first-line {
+	font-size: 18px;
+	font-style: normal;
+}
+dialog[is="wallet-modal"] {
+	/* is contained by max-width */
+	min-width: 350px;
+}
+dialog[is="wallet-modal"] > form > button:last-of-type {
+	display: block;
+	margin-top: 12px;
+	margin-left: auto;
+	margin-right: auto;
+}

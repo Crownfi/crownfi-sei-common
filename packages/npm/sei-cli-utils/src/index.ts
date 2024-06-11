@@ -30,6 +30,7 @@ export async function applyEnvVarsToDefaultClientEnv() {
 	await ClientEnv.setDefaultProvider({
 		seed: process.env.MNEMONIC,
 		index: Number(process.env.MNEMONIC_INDEX) || 0,
+		cointype: process.env.MNEMONIC_COIN_TYPE ? Number(process.env.MNEMONIC_COIN_TYPE) : 118
 	});
 }
 

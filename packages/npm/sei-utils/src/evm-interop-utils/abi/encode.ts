@@ -102,6 +102,12 @@ const encodeDecimal = function(num: any, decimalExponent: number) {
 }
 
 const encodeAddress = function(maybeAddress: any): Buffer {
+	if (maybeAddress instanceof Uint8Array) {
+		if (maybeAddress.length != 20) {
+			throw new TypeError("Can only pass buffers directly into the address param if they're 20 bytes long");
+		}
+		return Buffer.concat([Buffer.alloc(12), maybeAddress], 32);
+	}
 	const address = maybeAddress + "";
 	if (!isValidEvmAddress(address)) {
 		throw new TypeError("\"" + address + "\" is not a valid EVM address.");
@@ -129,6 +135,9 @@ const encodeFunction = function(contractFunc: any){
 };
 
 const encodeFixedBuffer = function(maybeBuf: any, expectedLength: number): Buffer {
+	if (typeof maybeBuf == "string" && maybeBuf.startsWith("0x")) {
+		maybeBuf = Buffer.from(maybeBuf.substring(2), "hex");
+	}
 	if (!Buffer.isBuffer(maybeBuf)) {
 		try {
 			maybeBuf = Buffer.from(maybeBuf);
@@ -152,7 +161,10 @@ const encodeFixedBuffer = function(maybeBuf: any, expectedLength: number): Buffe
 	return Buffer.concat([buff, new Uint8Array(32 - buff.length)], 32);
 };
 
-const encodeBuffer = function(maybeBuf: Buffer): {requiresPointer: Buffer} {
+const encodeBuffer = function(maybeBuf: any): {requiresPointer: Buffer} {
+	if (typeof maybeBuf == "string" && maybeBuf.startsWith("0x")) {
+		maybeBuf = Buffer.from(maybeBuf.substring(2), "hex");
+	}
 	if (!Buffer.isBuffer(maybeBuf)) {
 		try {
 			maybeBuf = Buffer.from(maybeBuf);

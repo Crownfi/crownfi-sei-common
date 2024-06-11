@@ -1,0 +1,82 @@
+<template cewt-name="wallet-options" cewt-extends="button">
+	<span cewt-ref="text">Connect wallet</span>
+	<dropdown-menu linked-elements="button:has(> #this)" click-trigger="primary" open-position="element-bottom-centered">
+		<dropdown-menu-item>
+			<span>Sei-native address</span>
+			<dropdown-menu-inner>
+				<dropdown-menu-item value="sei-address-copy">
+					<span><span cewt-ref="sei-address-text">[unknown]</span> (copy)</span>
+				</dropdown-menu-item>
+				<dropdown-menu-item value="sei-address-seitrace">
+					<span>View on seitrace</span><span class="cicon cicon-link-external"></span>
+				</dropdown-menu-item>
+				<dropdown-menu-item value="sei-address-seican">
+					<span>View on seican</span><span class="cicon cicon-link-external"></span>
+				</dropdown-menu-item>
+			</dropdown-menu-inner>
+		</dropdown-menu-item>
+		<dropdown-menu-item>
+			<span>EVM address</span>
+			<dropdown-menu-inner>
+				<dropdown-menu-item value="evm-address-copy">
+					<span><span cewt-ref="evm-address-text">[unknown]</span> (copy)</span>
+				</dropdown-menu-item>
+				<dropdown-menu-item value="evm-address-seitrace">
+					<span>View on seitrace</span><span class="cicon cicon-link-external"></span>
+				</dropdown-menu-item>
+			</dropdown-menu-inner>
+		</dropdown-menu-item>
+		<hr>
+		<dropdown-menu-item value="switch-wallet">Switch wallet</dropdown-menu-item>
+		<dropdown-menu-item value="disconnect">Disconnect wallet</dropdown-menu-item>
+	</dropdown-menu>
+</template>
+
+<template cewt-name="wallet-choice" cewt-extends="button" cewt-attributes="text, icon">
+	<img src="https://app.crownfi.io/assets/placeholder.svg" cewt-ref="img">
+	<span cewt-ref="text">undefined</span>
+</template>
+
+<template cewt-name="wallet-modal" cewt-extends="dialog">
+	<h1>Choose wallet</h1>
+	<div cewt-ref="plug">
+		<p>
+			Don't have a native Sei wallet installed?
+		</p>
+		<p>
+			We recommend <a href="https://www.tailwind.zone/" target="_blank">Tailwind wallet</a>!
+			<i><q>Your Sei wallet from the future.</q></i>
+		</p>
+	</div>
+	<form method="dialog">
+		<div cewt-ref="choices" class="wallet-choices">
+			<!-- Auto-generated -->
+		</div>
+		<button class="small danger" value="">Cancel</button>
+	</form>
+</template>
+
+<template cewt-name="seed-phrase-modal" cewt-extends="dialog" class="warning">
+	<h1>Enter seed phrase</h1>
+	<i class="dialog-cicon cicon-warning"></i>
+	<p>Entering your seed phrase directly into any website is a very bad idea, as it will allow that website to authorize all transactions to all your accounts without your approval. <i>This includes stealing all your funds.</i></p>
+	<p>This functionality primarily exists for testing and development, and should never be used unless you fully understand what you're doing and the risks involved.</p>
+	<form cewt-ref="form" method="dialog">
+		<label>
+			<span>Seed phrase:</span><br>
+			<input name="seed" type="text" placeholder="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about">
+		</label><br>
+		<label>
+			<span>Account Index (0 for first account, 1 for second account, etc.):</span><br>
+			<input name="index" type="number" value="0">
+		</label><br>
+		<label>
+			<span>Coin type (118 if the phrase was generated with a Sei-native wallet, 60 if it was generated with an Ethereum wallet):</span><br>
+			<input name="cointype" type="number" value="118">
+		</label><br>
+		<div class="button-row equal-width">
+			<button class="danger small">Pls don't steal me moni</button>
+			<button class="small" cewt-ref="cancel-btn">Cancel</button>
+		</div>
+	</form>
+</template>
