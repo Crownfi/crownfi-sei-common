@@ -1,3 +1,6 @@
+import { DeliverTxResponse } from "@cosmjs/stargate";
+import { ReceiptInformation as EvmReceiptInformation } from "@crownfi/ethereum-rpc-types";
+
 /**
  * Checks to see if the error is a failed transaction error
  * @param e exception to check if it might be a transaction error
@@ -67,4 +70,13 @@ export function makeQueryErrLessFugly(message: string): { errorSource: string; e
 	} else {
 		return null;
 	}
+}
+
+export function isEvmReceipt(tx: EvmReceiptInformation | DeliverTxResponse): tx is EvmReceiptInformation {
+	return tx.transactionHash.startsWith("0x");
+}
+
+export function transactionSucceeded(tx: EvmReceiptInformation | DeliverTxResponse): boolean {
+	// 1 ("0x1") means success in Ethereum-land, 0 means success in Cosmos-land.
+	return isEvmReceipt(tx) ? Boolean(Number(tx.status)) : !tx.code;
 }
