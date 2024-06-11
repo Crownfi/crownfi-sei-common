@@ -104,7 +104,7 @@ export async function getSeiClientAccountDataFromNetwork(
 	}
 	const canonicalSeiAddr = stringToCanonicalAddr(seiAddress);
 	if (canonicalSeiAddr.length == 32) {
-		// Contract address, through light experimentations, this appears valid.
+		// Contract EVM addresses, the 32 bytes are passed to geth's address type, which only uses the last 20 bytes.
 		const result = {
 			seiAddress,
 			evmAddress: toChecksumAddressEvm(
