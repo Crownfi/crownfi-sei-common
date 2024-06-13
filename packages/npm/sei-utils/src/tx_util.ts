@@ -10,7 +10,7 @@ export function isProbablyTxError(e: any): e is {name: string, message: string} 
 	return e != null &&
 		typeof e.name == "string" &&
 		typeof e.message == "string" &&
-		e.message.match(/\.go\:\d+\]/m);
+		/\w\.go\:\d+\]?/.test(e.message);
 }
 
 /**

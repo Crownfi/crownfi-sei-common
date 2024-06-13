@@ -6,14 +6,12 @@ addErrorMsgFormatter((err: any) => {
 	if (!isProbablyTxError(err)) {
 		return null;
 	}
-	if (err.message.includes("sei does not support EVM->CW->EVM call pattern")) {
-		const message = "Sei's Solidity to CosmWasm interopability is incomplete. As a consequence, Sei currently " +
-			"doesn't allow you to make trades which result in ERC20 tokens as output on our platform. This is a known " +
-			"issue and we're currently awaitng for the Sei team to fix this on their end.\n" +
-			"This error message will stop happening as soon as the network is upgraded to fix this.";
+	if (err.message.includes("does not support EVM->CW->EVM call pattern")) {
 		return {
-			title: "The Sei team makes CrownFi's CTO cry...",
-			message,
+			title: "Sei node needs updating",
+			message: "Trades using Ethereum-based wallets which result in ERC20 tokens as output are dependent on \
+				versions of Sei released after June 17th 2024.\n\
+				Seems like the connected network hasn't upgraded yet.",
 			dialogIcon: "cry",
 			dialogClass: "error"
 		}
@@ -30,7 +28,8 @@ addErrorMsgFormatter((err: any) => {
 	}
 	return {
 		title: "Sei RPC Error",
-		message: "An error was returned by the Sei-native node:\n" + err.message,
+		message: "An error was returned by the Sei-native node:\n" +
+			err.message.replace(/^(.*)\n\s+?.+?\w\.go\:\d+$/gm, "").split("\n").filter(Boolean).join("\n"),
 		dialogIcon: "warning",
 		dialogClass: "warning"
 	}

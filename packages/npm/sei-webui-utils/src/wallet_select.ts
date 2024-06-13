@@ -334,7 +334,7 @@ export class WalletModalElement extends WalletModalAutogen {
 			}
 		}
 		this.refs.plug.hidden = discoveredNativeSeiWallet;
-		if (experimentalWalletOptions.has("ethereum")) {
+		(() => {
 			const choiceElem = new WalletChoiceElement();
 			choiceElem.text = "Ethereum-based wallet";
 			choiceElem.icon = "https://app.crownfi.io/assets/wallets/ethereum.svg";
@@ -343,14 +343,19 @@ export class WalletModalElement extends WalletModalAutogen {
 				choiceElem.text += "\nSei-native wallet found";
 				choiceElem.disabled = true;
 				unavailableWallets.push(choiceElem);
-			} else if ((window as any).ethereum == undefined) {
+			} else if (window.ethereum == undefined) {
 				choiceElem.text += "\n(Not found)";
 				choiceElem.disabled = true;
 				unavailableWallets.push(choiceElem);
 			} else {
 				availableWallets.push(choiceElem);
+				window.ethereum.request({method: "web3_clientVersion", params: []})
+					.then(name => {
+						choiceElem.text += "\n" + name;
+					})
+					.catch(_ => {});
 			}
-		}
+		})();
 		if (experimentalWalletOptions.has("read_only")) {
 			const choiceElem = new WalletChoiceElement();
 			choiceElem.text = "Enter address\nRead-only account";
