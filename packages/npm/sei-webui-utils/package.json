@@ -1,6 +1,6 @@
 {
 	"name": "@crownfi/sei-webui-utils",
-	"version": "0.3.2",
+	"version": "0.3.3",
 	"main": "dist/index.js",
 	"style": "styles/index.css",
 	"type": "module",
@@ -18,7 +18,7 @@
 		"@cosmjs/proto-signing": "^0.32.2",
 		"@cosmjs/stargate": "^0.32.2",
 		"@crownfi/sei-js-core": "^5.2.3",
-		"@crownfi/sei-utils": "^0.3.5",
+		"@crownfi/sei-utils": "^0.3.7",
 		"@crownfi/css-gothic-fantasy": "^1.5.3",
 		"@aritz-cracker/browser-utils": "^1.2.3",
 		"dropdown-menu-element": "^1.1.3"
@@ -43,5 +43,8 @@
 	"files": [
 		"dist",
 		"styles"
+	],
+	"sideEffects": [
+		"./dist/wallet_select.js"
 	]
 }

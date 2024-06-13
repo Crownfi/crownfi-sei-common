@@ -1,9 +1,7 @@
 import { Coin, StdFee, encodeSecp256k1Pubkey } from "@cosmjs/amino";
 import {
-	ExecuteInstruction as WasmExecuteInstruction,
 	InstantiateResult,
 	MigrateResult,
-	MsgExecuteContractEncodeObject,
 	UploadResult,
 } from "@cosmjs/cosmwasm-stargate";
 import {
@@ -15,8 +13,7 @@ import {
 	getAddressStringFromPubKey,
 	getRpcQueryClient,
 	getSigningClient,
-	getStargateClient,
-	isValidSeiAddress
+	getStargateClient
 } from "@crownfi/sei-js-core";
 import { seiUtilEventEmitter } from "./events.js";
 import { EncodeObject, OfflineSigner, Registry } from "@cosmjs/proto-signing";
@@ -39,24 +36,6 @@ import { EvmOrWasmExecuteInstruction } from "./contract_base.js";
 import { keccak256 } from "keccak-wasm";
 
 // type SeiQueryClient = Awaited<ReturnType<typeof getQueryClient>>;
-
-/*
-
-const {getRpcQueryClient} = await import("@crownfi/sei-js-core");
-const queryClient = await getRpcQueryClient("https://rpc.atlantic-2.seinetwork.io/");
-
-txThing = await queryClient.txs.getTxsEvent({
-events: ["message.sender='sei19e6kd2juw63wjcklgsgqf8lpm0g8460g9v49et'"],
-orderBy: 0,
-pagination: {
-key: new Uint8Array([]),
-offset: 0n,
-countTotal: false,
-reverse: false,
-limit: 1n
-}
-})
-*/
 
 export interface SeiClientAccountData {
 	readonly seiAddress: string;

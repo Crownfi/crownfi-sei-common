@@ -3,6 +3,7 @@ import { FullscreenLoadingTask, alert, msgBoxIfThrow, prompt } from "@crownfi/cs
 import { KNOWN_SEI_PROVIDERS, KNOWN_SEI_PROVIDER_INFO, KnownSeiProviders, SeiWallet } from "@crownfi/sei-js-core";
 import { ClientEnv, MaybeSelectedProviderString, SeiChainId, SeiClientAccountData, getCometClient, getDefaultNetworkConfig, seiUtilEventEmitter, setDefaultNetwork } from "@crownfi/sei-utils";
 import { SeedPhraseModalAutogen, WalletChoiceAutogen, WalletModalAutogen, WalletOptionsAutogen } from "./_autogen/wallet_select.js";
+await applyCustomElementsWorkaround();
 import "dropdown-menu-element"; // The element has to exist plus we need the event types
 // Should this be here?
 declare global {
