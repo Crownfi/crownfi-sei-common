@@ -182,8 +182,27 @@ impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for Store
 
 #[cfg(test)]
 mod tests {
-	use crate::storage::testing_common::*;
 	use super::*;
+	use crate::storage::testing_common::*;
+
+	#[test]
+	fn stored_empty_map_iter() {
+		let _storage_lock = init().unwrap();
+		let stored_map = StoredMap::<String, String>::new(b"namespace");
+		let mut stored_map_iter = stored_map.iter().unwrap();
+		assert_eq!(
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
+			None
+		);
+		storage_write(b"unrelated", b"ayy lmao");
+
+		stored_map_iter = stored_map.iter().unwrap();
+		assert_eq!(
+			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
+			None
+		);
+	}
+
 	#[test]
 	fn stored_map_iter() {
 		let _storage_lock = init().unwrap();
@@ -298,7 +317,10 @@ mod tests {
 		let value = b"val1";
 
 		stored_map.set_raw_bytes(key, value);
-		assert_eq!(stored_map.get(key).unwrap(), Some(OZeroCopy::from_inner(value.to_owned())));
+		assert_eq!(
+			stored_map.get(key).unwrap(),
+			Some(OZeroCopy::from_inner(value.to_owned()))
+		);
 		assert_eq!(stored_map.get_raw_bytes(key), Some(b"val1".to_vec()));
 
 		Ok(())

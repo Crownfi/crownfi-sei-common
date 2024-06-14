@@ -149,11 +149,13 @@ where
 	}
 }
 
-
 #[cfg(test)]
 mod tests {
-	use crate::storage::{base::{storage_read, storage_remove}, testing_common::*};
 	use super::*;
+	use crate::storage::{
+		base::{storage_read, storage_remove},
+		testing_common::*,
+	};
 
 	impl StoredItem for u8 {
 		fn namespace() -> &'static [u8] {
@@ -179,9 +181,15 @@ mod tests {
 		assert_eq!(69, *item);
 
 		*item *= 2;
-		assert_eq!(Some(69), storage_read_item::<u8>(u8::namespace())?.map(|x| x.into_inner()));
+		assert_eq!(
+			Some(69),
+			storage_read_item::<u8>(u8::namespace())?.map(|x| x.into_inner())
+		);
 		drop(item);
-		assert_eq!(Some(69 * 2), storage_read_item::<u8>(u8::namespace())?.map(|x| x.into_inner()));
+		assert_eq!(
+			Some(69 * 2),
+			storage_read_item::<u8>(u8::namespace())?.map(|x| x.into_inner())
+		);
 
 		Ok(())
 	}
@@ -209,7 +217,10 @@ mod tests {
 		*item = (69, 420);
 		drop(item);
 
-		assert_eq!(Some((69u16, 420u16)), storage_read_item(<(u16, u16)>::namespace())?.map(OZeroCopy::into_inner));
+		assert_eq!(
+			Some((69u16, 420u16)),
+			storage_read_item(<(u16, u16)>::namespace())?.map(OZeroCopy::into_inner)
+		);
 
 		storage_remove(<(u16, u16)>::namespace());
 		assert_eq!(None, storage_read(<(u16, u16)>::namespace()));

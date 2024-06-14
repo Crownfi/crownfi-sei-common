@@ -374,7 +374,11 @@ mod tests {
 		vec.push(&69)?;
 		vec.push(&420)?;
 
-		let vec: Vec<u16> = vec.into_iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
+		let vec: Vec<u16> = vec
+			.into_iter()
+			.filter_map(Result::ok)
+			.map(OZeroCopy::into_inner)
+			.collect();
 		assert_eq!(vec, vec![69, 420]);
 
 		let vec = StoredVec::<u16>::new(NAMESPACE);
@@ -401,7 +405,11 @@ mod tests {
 		vec.extend([1, 2, 3].into_iter())?;
 		vec.extend_ref([Box::new(4)].into_iter())?;
 
-		let vec: Vec<u16> = vec.into_iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect();
+		let vec: Vec<u16> = vec
+			.into_iter()
+			.filter_map(Result::ok)
+			.map(OZeroCopy::into_inner)
+			.collect();
 		assert_eq!(vec, vec![69, 420, 1, 2, 3, 4]);
 
 		Ok(())

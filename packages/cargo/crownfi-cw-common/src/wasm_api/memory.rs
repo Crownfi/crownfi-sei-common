@@ -52,7 +52,10 @@ impl From<Vec<u8>> for OwnedRegion {
 }
 impl From<OwnedRegion> for Vec<u8> {
 	fn from(value: OwnedRegion) -> Self {
-		assert!(!value.offset.is_null(), "Attempted to convert a null OwnedRegion to a Vec<u8>!");
+		assert!(
+			!value.offset.is_null(),
+			"Attempted to convert a OwnedRegion with a null offset to a Vec<u8>!"
+		);
 		// SAFTY: It is assumed that this OwnedRegion was either created by the runtime or by using From<Vec<u8>>
 		let result = unsafe { Vec::from_raw_parts(value.offset, value.length, value.capacity) };
 		std::mem::forget(value); // Make sure our destructor isn't ran, wouldn't want another double-free

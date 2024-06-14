@@ -68,21 +68,24 @@ pub fn storage_remove(key: &[u8]) {
 
 #[inline]
 pub fn storage_iter_new(start: Option<&[u8]>, end: Option<&[u8]>, direction: IteratorDirection) -> StorageIterId {
-	let start_as_region = start.as_ref().map(|k| ConstRegion::new(k));
-	let end_as_region = end.as_ref().map(|k| ConstRegion::new(k));
+	let start_as_region = start.map(|k| ConstRegion::new(k));
+	let end_as_region = end.map(|k| ConstRegion::new(k));
+
+	// Gotta make sure that the refs of the inner values are in scope
+	let start_as_region_ref = start_as_region.as_ref();
+	let end_as_region_ref = end_as_region.as_ref();
+
+	let start_as_region_ptr = start_as_region_ref
+		.map(|region| ptr::from_ref(region))
+		.unwrap_or(ptr::null());
+
+	let end_as_region_ptr = end_as_region_ref
+		.map(|region| ptr::from_ref(region))
+		.unwrap_or(ptr::null());
+
 	// SAFTY:
 	// * It is assumed that the passed regions will not be edited or used beyond this call.
-	unsafe {
-		wasmvm_db_scan(
-			start_as_region
-				.map(|region| ptr::from_ref(&region) as usize)
-				.unwrap_or_default(),
-			end_as_region
-				.map(|region| ptr::from_ref(&region) as usize)
-				.unwrap_or_default(),
-			direction,
-		)
-	}
+	unsafe { wasmvm_db_scan(start_as_region_ptr as usize, end_as_region_ptr as usize, direction) }
 }
 
 #[inline]
@@ -94,6 +97,10 @@ pub fn storage_iter_next_pair(iter: StorageIterId) -> Option<(Vec<u8>, Vec<u8>)>
 	);
 	let data_value = split_off_length_suffixed_bytes(&mut data_pair_bytes);
 	let data_key = split_off_length_suffixed_bytes(&mut data_pair_bytes);
+	if data_key.len() == 0 {
+		// No idea why they don't return a nullptr like everywhere else but whatever
+		return None;
+	}
 	// Throw away the rest of the data cuz that's what the default implementation effectively does.
 	Some((data_key, data_value))
 }

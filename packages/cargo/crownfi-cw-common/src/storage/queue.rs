@@ -212,9 +212,12 @@ impl<V: SerializableItem> IntoIterator for &StoredVecDeque<V> {
 }
 #[cfg(test)]
 mod tests {
-	use std::collections::VecDeque;
-	use crate::storage::{base::{storage_has, storage_remove}, testing_common::*};
 	use super::*;
+	use crate::storage::{
+		base::{storage_has, storage_remove},
+		testing_common::*,
+	};
+	use std::collections::VecDeque;
 
 	type TestingResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 	const NAMESPACE: &[u8] = b"testing";
@@ -357,7 +360,11 @@ mod tests {
 		drop(vec);
 
 		let queue = StoredVecDeque::<u16>::new(NAMESPACE);
-		let queue = queue.into_iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect::<VecDeque<u16>>();
+		let queue = queue
+			.into_iter()
+			.filter_map(Result::ok)
+			.map(OZeroCopy::into_inner)
+			.collect::<VecDeque<u16>>();
 		assert_eq!(queue, VecDeque::from([69, 420]));
 
 		Ok(())
@@ -372,7 +379,11 @@ mod tests {
 		drop(queue);
 
 		let queue = StoredVecDeque::<u8>::new(NAMESPACE);
-		let queue = queue.into_iter().filter_map(Result::ok).map(OZeroCopy::into_inner).collect::<VecDeque<u8>>();
+		let queue = queue
+			.into_iter()
+			.filter_map(Result::ok)
+			.map(OZeroCopy::into_inner)
+			.collect::<VecDeque<u8>>();
 		assert_eq!(queue, VecDeque::from([69]));
 
 		Ok(())
@@ -409,7 +420,10 @@ mod tests {
 		let len = queue.len();
 		assert_eq!(len, 2);
 
-		let queue = queue.iter().filter_map(Result::ok).collect::<VecDeque<OZeroCopy<u16>>>();
+		let queue = queue
+			.iter()
+			.filter_map(Result::ok)
+			.collect::<VecDeque<OZeroCopy<u16>>>();
 		assert_eq!(queue.len(), 2);
 	}
 
