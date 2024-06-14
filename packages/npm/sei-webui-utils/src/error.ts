@@ -1,42 +1,57 @@
 import { TimeoutError } from "@cosmjs/stargate";
 import { addErrorMsgFormatter } from "@crownfi/css-gothic-fantasy";
-import { ClientAccountMissingError, ClientNotSignableError, ClientPubkeyUnknownError, EvmAddressValidationMismatchError, NetworkEndpointNotConfiguredError, getDefaultNetworkConfig, isProbablyTxError, makeTxExecErrLessFugly } from "@crownfi/sei-utils";
+import { ClientAccountMissingError, ClientNotSignableError, ClientPubkeyUnknownError, EvmAddressValidationMismatchError, NetworkEndpointNotConfiguredError, getDefaultNetworkConfig, isProbablyTxError, makeQueryErrLessFugly, makeTxExecErrLessFugly } from "@crownfi/sei-utils";
 
 addErrorMsgFormatter((err: any) => {
-	if (!isProbablyTxError(err)) {
+	if (!err || typeof err.message != "string") {
 		return null;
 	}
-	if (err.message.includes("does not support EVM->CW->EVM call pattern")) {
-		return {
-			title: "Sei node needs updating",
-			message: "Trades using Ethereum-based wallets which result in ERC20 tokens as output are dependent on \
-				versions of Sei released after June 17th 2024.\n\
-				Seems like the connected network hasn't upgraded yet.",
-			dialogIcon: "cry",
-			dialogClass: "error"
-		}
+	const errorParts = makeQueryErrLessFugly(err.message);
+	if (errorParts == null) {
+		return null;
 	}
-	const errorParts = makeTxExecErrLessFugly(err.message);
-	if (errorParts) {
-		const {messageIndex, errorSource, errorDetail} = errorParts;
-		return {
-			title: "Transaction Execution Error",
-			message: "Message #" + messageIndex + " failed.\n" + errorSource + ": " + errorDetail,
-			dialogIcon: "warning",
-			dialogClass: "warning"
-		};
-	}
+	const {errorSource, errorDetail} = errorParts;
 	return {
-		title: "Sei RPC Error",
-		message: "An error was returned by the Sei-native node:\n" +
-			err.message.replace(/^(.*)\n\s+?.+?\w\.go\:\d+$/gm, "").split("\n").filter(Boolean).join("\n"),
+		title: "Sei network: " + errorSource,
+		message: errorDetail,
 		dialogIcon: "warning",
 		dialogClass: "warning"
+	};
+});
+
+addErrorMsgFormatter((err: any) => {
+	if (!err || typeof err.message != "string") {
+		return null;
+	}
+	const errorParts = makeTxExecErrLessFugly(err.message);
+	if (errorParts == null) {
+		return null;
+	}
+	const {messageIndex, errorSource, errorDetail} = errorParts;
+	return {
+		title: "Transaction Execution Error",
+		message: "Message #" + messageIndex + " failed.\n" + errorSource + ": " + errorDetail,
+		dialogIcon: "warning",
+		dialogClass: "warning"
+	};
+});
+
+addErrorMsgFormatter((err: any) => {
+	if (!err || typeof err.message !== "string" || !err.message.includes("does not support EVM->CW->EVM call pattern")) {
+		return null;
+	}
+	return {
+		title: "Sei node needs updating",
+		message: "Trades using Ethereum-based wallets which result in ERC20 tokens as output are dependent on \
+			versions of Sei released after June 17th 2024.\n\
+			Seems like the connected network hasn't upgraded yet.",
+		dialogIcon: "cry",
+		dialogClass: "error"
 	}
 });
 
 addErrorMsgFormatter((err: any) => {
-	if (typeof err.code !== "number" || typeof err.message !== "string") {
+	if (!err || typeof err.code !== "number" || typeof err.message !== "string") {
 		return null;
 	}
 	if (err.code == 4001) {
