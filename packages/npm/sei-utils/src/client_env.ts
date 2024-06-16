@@ -26,10 +26,10 @@ import { Secp256k1, ExtendedSecp256k1Signature } from '@cosmjs/crypto'; // Heavy
 import { nativeDenomSortCompare } from "./funds_util.js";
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx.js";
 import { Addr } from "./common_sei_types.js";
-import { getEvmAddressFromPubkey } from "./evm-interop-utils/address.js";
+import { getEvmAddressFromPubkey, toChecksumAddressEvm } from "./evm-interop-utils/address.js";
 import { ClientAccountMissingError, ClientNotSignableError, ClientPubkeyUnknownError, EvmAddressValidationMismatchError } from "./error.js";
 import { EVMABIFunctionDefinition, functionSignatureToABIDefinition } from "./evm-interop-utils/abi/common.js";
-import { cosmosMessagesToEvmMessages, encodeEvmFuncCall, getSeiClientAccountDataFromNetwork } from "./evm-interop-utils/index.js";
+import { addSeiClientAccountDataToCache, cosmosMessagesToEvmMessages, encodeEvmFuncCall, getSeiClientAccountDataFromNetwork } from "./evm-interop-utils/index.js";
 import { decodeEvmOutputAsArray, decodeEvmOutputAsStruct } from "./evm-interop-utils/abi/decode.js";
 import { ERC20_FUNC_BALANCE_OF, ERC20_FUNC_TOTAL_SUPPLY } from "./evm-interop-utils/erc20.js";
 import { EvmOrWasmExecuteInstruction } from "./contract_base.js";
@@ -245,10 +245,12 @@ export class ClientEnv {
 			});
 		}
 		// Metamask tells you all the accounts connected, but puts the current user-selected one on the top of the list.
-		const userEvmAddress = (await provider.request({
-			method: "eth_requestAccounts",
-			params: []
-		}))[0];
+		const userEvmAddress = toChecksumAddressEvm(
+			(await provider.request({
+				method: "eth_requestAccounts",
+				params: []
+			}))[0]
+		);
 		if (expectedAddress && userEvmAddress != expectedAddress) {
 			throw new EvmAddressValidationMismatchError(expectedAddress, userEvmAddress);
 		}
@@ -298,23 +300,40 @@ export class ClientEnv {
 			let accountData = await getSeiClientAccountDataFromNetwork(queryClient, evmAddress);
 			if (accountData == null || accountData.pubkey == null) {
 				const msgToSign = Buffer.from("A signature is required to get your Sei-native address");
-				const sig = await window.ethereum.request(
-					{
-						method: "personal_sign",
-						params: [
-							"0x" + msgToSign.toString("hex"),
-							evmAddress
-						]
-					}
+				const sig = Buffer.from(
+					(await window.ethereum.request(
+						{
+							method: "personal_sign",
+							params: [
+								"0x" + msgToSign.toString("hex"),
+								evmAddress
+							]
+						}
+					)).substring(2),
+					"hex"
 				);
+				// Metamask still seems to use this offset for message signing, and yet it's discouraged for txs?
+				// Idk, but if pubkey recovery fails, this is probably why.
+				sig[64] -= 27;
 				const pubkey = Secp256k1.recoverPubkey(
-					ExtendedSecp256k1Signature.fromFixedLength(Buffer.from(sig.substring(2))),
-					keccak256(msgToSign)
-				)
+					ExtendedSecp256k1Signature.fromFixedLength(sig),
+					keccak256(
+						Buffer.concat([
+							Buffer.from("\x19Ethereum Signed Message:\n" + msgToSign.length, "ascii"),
+							msgToSign
+						])
+					)
+				);
+				const derivedEvmPubkey = getEvmAddressFromPubkey(pubkey);
+				if (getEvmAddressFromPubkey(pubkey) != evmAddress) {
+					throw new EvmAddressValidationMismatchError(evmAddress, derivedEvmPubkey);
+				}
 				accountData = {
 					evmAddress,
-					seiAddress: getAddressStringFromPubKey(pubkey)
+					seiAddress: getAddressStringFromPubKey(pubkey),
+					pubkey
 				};
+				addSeiClientAccountDataToCache(accountData);
 			}
 			return {
 				ethereumOnlyProvider: {

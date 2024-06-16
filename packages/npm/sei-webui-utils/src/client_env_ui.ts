@@ -160,6 +160,7 @@ export class WebClientEnv extends ClientEnv {
 				confirmed: { timeoutMs = DEFAULT_TX_TIMEOUT_MS },
 			} = finality;
 			const result = await this.waitForTxConfirm(transactionHash, timeoutMs, true);
+			task.hide();
 			if (!noConfirmMsgBox) {
 				await txConfirmMsgBox(result, this.chainId);
 			}
@@ -209,6 +210,7 @@ export class WebClientEnv extends ClientEnv {
 				confirmed: { timeoutMs = DEFAULT_TX_TIMEOUT_MS },
 			} = finality;
 			const result = await this.waitForEvmTxConfirm(transactionHash, timeoutMs, true);
+			task.hide();
 			if (!noConfirmMsgBox) {
 				await txConfirmMsgBox(result, this.chainId);
 			}

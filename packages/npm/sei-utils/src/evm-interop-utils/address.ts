@@ -1,5 +1,5 @@
 
-import { normalizePubkey } from "@crownfi/sei-js-core/dist/lib/utils/address.js"; // FIXME: Don't reference the file itself
+import { normalizePubkey } from "@crownfi/sei-js-core";
 import { keccak256ToHex } from "keccak-wasm";
 
 export function getEvmAddressFromPubkey(pubkey: Uint8Array): string {

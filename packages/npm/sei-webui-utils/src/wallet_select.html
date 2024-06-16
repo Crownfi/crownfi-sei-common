@@ -60,7 +60,7 @@
 	<h1>Enter seed phrase</h1>
 	<i class="dialog-cicon cicon-warning"></i>
 	<p>Entering your seed phrase directly into any website is a very bad idea, as it will allow that website to authorize all transactions to all your accounts without your approval.</p>
-	<p><i class="primary">This includes stealing all your funds from all accounts associated with the seed phrase!</i></p>
+	<p><i>This includes stealing all your funds from all accounts associated with the seed phrase!</i></p>
 	<p>This functionality primarily exists for testing and development, and should never be used unless you fully understand what you're doing and the risks involved.</p>
 	<form cewt-ref="form" method="dialog">
 		<label>
@@ -69,11 +69,11 @@
 		</label>
 		<label>
 			<span>Account Index (0 for first account, 1 for second account, etc.):</span>
-			<input name="index" type="number" value="0">
+			<input name="index" type="number" min="0" max="255" value="0">
 		</label>
 		<label>
 			<span>Coin type (118 if the phrase was generated with a Sei-native wallet, 60 if it was generated with an Ethereum wallet):</span>
-			<input name="cointype" type="number" value="118">
+			<input name="cointype" type="number" min="0" max="255" value="118">
 		</label>
 		<div class="button-row equal-width">
 			<button class="danger small">Pls don't steal me moni</button>

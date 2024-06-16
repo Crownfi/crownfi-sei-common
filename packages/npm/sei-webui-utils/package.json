@@ -1,6 +1,6 @@
 {
 	"name": "@crownfi/sei-webui-utils",
-	"version": "0.3.8",
+	"version": "0.3.9",
 	"main": "dist/index.js",
 	"style": "styles/index.css",
 	"type": "module",
@@ -17,9 +17,9 @@
 		"@cosmjs/cosmwasm-stargate": "^0.32.2",
 		"@cosmjs/proto-signing": "^0.32.2",
 		"@cosmjs/stargate": "^0.32.2",
-		"@crownfi/sei-js-core": "^5.2.3",
-		"@crownfi/sei-utils": "^0.3.8",
-		"@crownfi/css-gothic-fantasy": "^1.6.3",
+		"@crownfi/sei-js-core": "^5.2.4",
+		"@crownfi/sei-utils": "^0.3.9",
+		"@crownfi/css-gothic-fantasy": "^1.6.6",
 		"@aritz-cracker/browser-utils": "^1.2.3",
 		"dropdown-menu-element": "^1.1.3"
 	},

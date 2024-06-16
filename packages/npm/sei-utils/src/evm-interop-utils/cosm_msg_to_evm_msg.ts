@@ -112,6 +112,8 @@ export async function cosmosMessagesToEvmMessages(
 				}
 				break;
 			}
+			default:
+				throw new Error("Could not convert " + msgs[i].typeUrl + " to EVM message");
 		}
 	}
 	return result;
