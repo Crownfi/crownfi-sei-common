@@ -1,6 +1,6 @@
 [package]
 name = "crownfi-cw-common"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 
 [features]
@@ -17,6 +17,7 @@ bytemuck = {workspace = true}
 serde = {workspace = true}
 bech32 = {workspace = true}
 static_assertions = {workspace = true}
+bnum = {workspace = true}
 
 [dev-dependencies]
 cw-multi-test = {workspace = true}

@@ -51,7 +51,13 @@ addErrorMsgFormatter((err: any) => {
 });
 
 addErrorMsgFormatter((err: any) => {
-	if (!err || typeof err.code !== "number" || typeof err.message !== "string") {
+	if (
+		!err ||
+		typeof err.code !== "number" ||
+		typeof err.message !== "string" ||
+		err.codespace != undefined ||
+		err.log != undefined
+	) {
 		return null;
 	}
 	if (err.code == 4001) {

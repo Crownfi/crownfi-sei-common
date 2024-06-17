@@ -245,9 +245,10 @@ dependencies = [
 
 [[package]]
 name = "crownfi-cw-common"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "bech32",
+ "bnum",
  "borsh",
  "bytemuck",
  "cosmwasm-schema",

@@ -25,3 +25,4 @@ regex = "1"
 bech32 = "0.9"
 cw-multi-test = "0.20"
 static_assertions = "1.1.0"
+bnum = "0.10" # Cosmwasm dependency
