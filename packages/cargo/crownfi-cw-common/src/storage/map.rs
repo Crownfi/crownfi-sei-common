@@ -1,11 +1,10 @@
 use cosmwasm_std::StdResult;
 use std::{marker::PhantomData, num::NonZeroUsize};
 
+use crate::utils::lexicographic_next;
+
 use super::{
-	base::{storage_has, storage_read, storage_read_item, storage_remove, storage_write, storage_write_item},
-	concat_byte_array_pairs,
-	item::AutosavingSerializableItem,
-	lexicographic_next, OZeroCopy, SerializableItem, StoragePairIterator,
+	base::{storage_has, storage_read, storage_read_item, storage_remove, storage_write, storage_write_item}, concat_byte_array_pairs, item::AutosavingSerializableItem, OZeroCopy, SerializableItem, StorageKeyIterator, StoragePairIterator
 };
 pub struct StoredMap<K: SerializableItem, V: SerializableItem> {
 	namespace: &'static [u8],
@@ -91,6 +90,22 @@ impl<'exec, K: SerializableItem, V: SerializableItem> StoredMap<K, V> {
 	pub fn iter_range(&self, after: Option<K>, before: Option<K>) -> StdResult<StoredMapIter<K, V>> {
 		StoredMapIter::new(self.namespace, (), after, before)
 	}
+
+	/// Returns an iterator which iterates over all keys of the map
+	///
+	/// By default it iterates in an ascending order. Though is a double-ended iterator, so you can use the `.rev()`
+	/// method to switch to descending order.
+	pub fn iter_keys(&self) -> StdResult<StoredMapKeyIter<K>> {
+		StoredMapKeyIter::new(self.namespace, (), None, None)
+	}
+
+	/// Returns an iterator over a range of keys.
+	///
+	/// You can use `after` to skip items while in ascending order. Or `before` along with the `.rev()` method to skip
+	/// items while iterating in a descending order.
+	pub fn iter_range_keys(&self, after: Option<K>, before: Option<K>) -> StdResult<StoredMapKeyIter<K>> {
+		StoredMapKeyIter::new(self.namespace, (), after, before)
+	}
 }
 
 /// Allows you to iterate over a stored map.
@@ -112,31 +127,15 @@ impl<'a, K: SerializableItem, V: SerializableItem> StoredMapIter<K, V> {
 	where
 		P: SerializableItem,
 	{
-		let prefix_bytes = key_prefix.serialize_to_owned()?;
-		let start_bytes = start_key.map_or(Ok(Vec::new()), |k| {
-			k.serialize_to_owned().map(|maybe_vec| maybe_vec.into())
-		})?;
-		let end_bytes = end_key.map_or(Ok(Vec::new()), |k| {
-			k.serialize_to_owned().map(|maybe_vec| maybe_vec.into())
-		})?;
-
-		let mut start_key = Vec::with_capacity(namespace.len() + prefix_bytes.len() + start_bytes.len());
-		start_key.extend_from_slice(namespace);
-		start_key.extend_from_slice(prefix_bytes.as_ref());
-		start_key.extend_from_slice(start_bytes.as_ref());
-
-		let end_key = if end_bytes.len() == 0 {
-			lexicographic_next(&concat_byte_array_pairs(&namespace, &prefix_bytes))
-		} else {
-			let mut end_key = Vec::with_capacity(namespace.len() + prefix_bytes.len() + end_bytes.len());
-			end_key.extend_from_slice(namespace);
-			end_key.extend_from_slice(prefix_bytes.as_ref());
-			end_key.extend_from_slice(end_bytes.as_ref());
+		let (start_key, end_key, full_prefix_bytes_len) = prefixed_key_range_to_byte_prefixes(
+			namespace,
+			key_prefix,
+			start_key,
 			end_key
-		};
+		)?;
 		Ok(Self {
 			inner_iter: StoragePairIterator::new(Some(&start_key), Some(&end_key)),
-			key_slicing: namespace.len() + prefix_bytes.len(),
+			key_slicing: full_prefix_bytes_len,
 			key_type: PhantomData,
 			value_type: PhantomData,
 		})
@@ -178,6 +177,101 @@ impl<'a, K: SerializableItem, V: SerializableItem> DoubleEndedIterator for Store
 		self.next()
 	}
 	// TODO: impl advance_by when stable
+}
+
+
+
+
+/// Allows you to iterate the keys over a stored map.
+///
+/// If your key type for your stored map is a tuple, i.e. `(T1, T2, T3)`, you can set `K` to `(T2, T3)` while providing
+/// `T1` as the `partial_key` in the `new()` function.
+pub struct StoredMapKeyIter<K: SerializableItem> {
+	inner_iter: StorageKeyIterator,
+	key_slicing: usize,
+	key_type: PhantomData<K>
+}
+
+impl<'a, K: SerializableItem> StoredMapKeyIter<K> {
+	/// Note that start_key and end_key are both exclusive, i.e. this key, if it exists, will be skipped
+	pub fn new<P>(namespace: &[u8], key_prefix: P, start_key: Option<K>, end_key: Option<K>) -> StdResult<Self>
+	where
+		P: SerializableItem,
+	{
+		let (start_key, end_key, full_prefix_bytes_len) = prefixed_key_range_to_byte_prefixes(
+			namespace,
+			key_prefix,
+			start_key,
+			end_key
+		)?;
+		Ok(Self {
+			inner_iter: StorageKeyIterator::new(Some(&start_key), Some(&end_key)),
+			key_slicing: full_prefix_bytes_len,
+			key_type: PhantomData,
+		})
+	}
+	fn advance_by(&mut self, n: usize) -> Result<(), NonZeroUsize> {
+		self.inner_iter.0.advance_by(n)
+	}
+	fn advance_back_by(&mut self, n: usize) -> Result<(), NonZeroUsize> {
+		self.inner_iter.0.advance_back_by(n)
+	}
+}
+impl<'a, K: SerializableItem> Iterator for StoredMapKeyIter<K> {
+	type Item = K;
+	fn next(&mut self) -> Option<Self::Item> {
+		self.inner_iter.next().and_then(|key_bytes| {
+			Some(K::deserialize_to_owned(&key_bytes[self.key_slicing..]).ok()?)
+		})
+	}
+	fn nth(&mut self, n: usize) -> Option<Self::Item> {
+		self.advance_by(n).ok()?;
+		self.next()
+	}
+	// TODO: impl advance_by when stable
+}
+impl<'a, K: SerializableItem> DoubleEndedIterator for StoredMapKeyIter<K> {
+	fn next_back(&mut self) -> Option<Self::Item> {
+		self.inner_iter.next_back().and_then(|key_bytes| {
+			Some(K::deserialize_to_owned(&key_bytes[self.key_slicing..]).ok()?)
+		})
+	}
+	fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+		self.advance_back_by(n).ok()?;
+		self.next()
+	}
+	// TODO: impl advance_by when stable
+}
+
+fn prefixed_key_range_to_byte_prefixes<P, K>(
+	namespace: &[u8],
+	key_prefix: P,
+	start_key: Option<K>,
+	end_key: Option<K>
+) -> StdResult<(Vec<u8>, Vec<u8>, usize)> where K:SerializableItem, P:SerializableItem {
+	let prefix_bytes = key_prefix.serialize_to_owned()?;
+	let start_bytes = start_key.map_or(Ok(Vec::new()), |k| {
+		k.serialize_to_owned().map(|maybe_vec| maybe_vec.into())
+	})?;
+	let end_bytes = end_key.map_or(Ok(Vec::new()), |k| {
+		k.serialize_to_owned().map(|maybe_vec| maybe_vec.into())
+	})?;
+
+	let mut start_key = Vec::with_capacity(namespace.len() + prefix_bytes.len() + start_bytes.len());
+	start_key.extend_from_slice(namespace);
+	start_key.extend_from_slice(prefix_bytes.as_ref());
+	start_key.extend_from_slice(start_bytes.as_ref());
+
+	let end_key = if end_bytes.len() == 0 {
+		lexicographic_next(&concat_byte_array_pairs(&namespace, &prefix_bytes))
+	} else {
+		let mut end_key = Vec::with_capacity(namespace.len() + prefix_bytes.len() + end_bytes.len());
+		end_key.extend_from_slice(namespace);
+		end_key.extend_from_slice(prefix_bytes.as_ref());
+		end_key.extend_from_slice(end_bytes.as_ref());
+		end_key
+	};
+	Ok((start_key, end_key, namespace.len() + prefix_bytes.len()))
 }
 
 #[cfg(test)]
@@ -288,6 +382,94 @@ mod tests {
 		assert_eq!(
 			stored_map_iter.next().map(|(key, value)| { (key, value.into_inner()) }),
 			Some(("key1".into(), "val1".into()))
+		);
+		assert_eq!(stored_map_iter.next(), None);
+	}
+
+	#[test]
+	fn stored_map_key_iter() {
+		let _storage_lock = init().unwrap();
+
+		let stored_map = StoredMap::<String, String>::new(b"namespace");
+		stored_map.set(&"key1".to_string(), &"val1".to_string()).unwrap();
+		assert_eq!(
+			stored_map
+				.get(&"key1".to_string())
+				.map(|result| { result.map(|thing| { thing.into_inner() }) }),
+			Ok(Some("val1".into()))
+		);
+		assert_eq!(
+			stored_map
+				.iter_keys()
+				.unwrap()
+				.next(),
+			Some("key1".into())
+		);
+		stored_map.set(&"key2".to_string(), &"val2".to_string()).unwrap();
+
+		let mut stored_map_iter = stored_map.iter_keys().unwrap();
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key1".into())
+		);
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key2".into())
+		);
+		assert!(stored_map_iter.next().is_none());
+
+		stored_map.set(&"key3".to_string(), &"val3".to_string()).unwrap();
+
+		let mut stored_map_iter = stored_map.iter_keys().unwrap().rev();
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key3".into())
+		);
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key2".into())
+		);
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key1".into())
+		);
+		assert_eq!(stored_map_iter.next(), None);
+
+		let mut stored_map_iter = stored_map.iter_range_keys(Some("key".into()), Some("key3".into())).unwrap();
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key1".into())
+		);
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key2".into())
+		);
+		assert_eq!(stored_map_iter.next(), None);
+
+		// Note: when it comes to iter_range_keys, the "start" position is inclusive, while the "end" is exclusive
+		let mut stored_map_iter = stored_map.iter_range_keys(Some("key2".into()), None).unwrap();
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key2".into())
+		);
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key3".into())
+		);
+		assert_eq!(stored_map_iter.next(), None);
+
+		// Note: when it comes to iter_range_keys, the "start" position is inclusive, while the "end" is exclusive
+		let mut stored_map_iter = stored_map
+			.iter_range_keys(Some("key1".into()), Some("key3".into()))
+			.unwrap()
+			.rev();
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key2".into())
+		);
+		assert_eq!(
+			stored_map_iter.next(),
+			Some("key1".into())
 		);
 		assert_eq!(stored_map_iter.next(), None);
 	}

@@ -755,24 +755,6 @@ where
 	}
 }
 
-pub(crate) fn lexicographic_next(bytes: &[u8]) -> Vec<u8> {
-	let mut result = Vec::from(bytes);
-	let mut add = true;
-	for val in result.iter_mut().rev() {
-		(*val, add) = val.overflowing_add(1);
-		if !add {
-			break;
-		}
-	}
-	if add {
-		// Turns out all the array values where u8::MAX, the only lexicographically next value is a larger array.
-		// This also allows for an empty array.
-		result.fill(u8::MAX);
-		result.push(0);
-	}
-	result
-}
-
 #[deprecated(note = "Juggling around dyn pointers to nothing is useless.")]
 #[derive(Clone)]
 pub enum MaybeMutableStorage<'exec> {

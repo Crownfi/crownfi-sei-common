@@ -18,6 +18,7 @@ serde = {workspace = true}
 bech32 = {workspace = true}
 static_assertions = {workspace = true}
 bnum = {workspace = true}
+hex = {workspace = true}
 
 [dev-dependencies]
 cw-multi-test = {workspace = true}
