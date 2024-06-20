@@ -109,7 +109,7 @@ const encodeAddress = function(maybeAddress: any): Buffer {
 		return Buffer.concat([Buffer.alloc(12), maybeAddress], 32);
 	}
 	const address = maybeAddress + "";
-	if (!isValidEvmAddress(address)) {
+	if (!isValidEvmAddress(address, true)) {
 		throw new TypeError("\"" + address + "\" is not a valid EVM address.");
 	}
 	const result = Buffer.alloc(32);
@@ -117,21 +117,44 @@ const encodeAddress = function(maybeAddress: any): Buffer {
 	return result;
 };
 
-const encodeFunction = function(contractFunc: any){
-	throw new Error(
-		"Encoding functions is currently not supported. " +
-		"If you need to do this _right now_, just put the address + method ID in a bytes24."
-	);
-	/*
-	getClassDefinitionsAtRuntime();
-	if(contractFunc instanceof classes.EthereumContractMultiFunction){
-		throw new TypeError("This EthereumContract has multiple functions with the same name. You must select the function using its name and argument types.");
+function validateContractFunc(contractFunc: any): asserts contractFunc is {address: string, func: EVMABIFunctionDefinition | string} {
+	if (
+		typeof contractFunc != "object" ||
+		contractFunc == null ||
+		typeof contractFunc.address != "string" ||
+		typeof contractFunc.func != "string" ||
+		contractFunc.func == null ||
+		typeof contractFunc.func.name != "string" ||
+		!Array.isArray(contractFunc.func.inputs)
+	) {
+		throw new TypeError("encodeFunction: parameter must be a {address: string, func: EVMABIFunctionDefinition | string}");
 	}
-	if(!(contractFunc instanceof classes.EthereumContractFunction)){
-		throw new TypeError("Only EthereumContractFunctions can be passed to EthereumContracts");
+}
+const encodeFunction = function(contractFunc: any): Buffer {
+	validateContractFunc(contractFunc);
+	if (!isValidEvmAddress(contractFunc.address, true)) {
+		throw new TypeError("\"" + contractFunc.address + "\" is not a valid EVM address.");
 	}
-	return contractFunc.contract._jsproperties.account.address.substring(2).toLowerCase() + contractFunc.selectorHash.substring(2) + ("0".repeat(16));
-	*/
+	const result = Buffer.alloc(32);
+	result.write(contractFunc.address.substring(2), "hex");
+
+	const funcDefinition = typeof contractFunc.func == "string" ?
+		functionSignatureToABIDefinition(contractFunc.func) :
+		contractFunc.func;
+	
+	if (funcDefinition.type != "fallback") {
+		result.fill(
+			keccak256(
+				Buffer.from(
+					funcDefinition.name +
+					tupleComponentsTypeSignature(funcDefinition.inputs)
+				)
+			),
+			20,
+			24
+		);
+	}
+	return result;
 };
 
 const encodeFixedBuffer = function(maybeBuf: any, expectedLength: number): Buffer {

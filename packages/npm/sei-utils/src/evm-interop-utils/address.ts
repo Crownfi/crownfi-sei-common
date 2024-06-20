@@ -19,6 +19,8 @@ export function toChecksumAddressEvm(address: string, checkAddress: boolean = tr
 			throw new Error("Invalid Ethereum address");
 		}
 		address = address.toLowerCase().substring(2);
+	}else if(address.startsWith("0x") || address.startsWith("0X")){
+		address = address.toLowerCase().substring(2);
 	}
 	const addressHash = keccak256ToHex(Buffer.from(address, "ascii"));
 	let checksumAddress = "0x";
