@@ -100,6 +100,7 @@ impl<T: Sized + SerializableItem> OZeroCopy<T> {
 	}
 }
 impl<T: Sized + SerializableItem> AsRef<T> for OZeroCopy<T> {
+	#[inline]
 	fn as_ref(&self) -> &T {
 		match &self.0 {
 			OZeroCopyType::Copy(val) => val,
@@ -108,6 +109,7 @@ impl<T: Sized + SerializableItem> AsRef<T> for OZeroCopy<T> {
 	}
 }
 impl<T: Sized + SerializableItem> AsMut<T> for OZeroCopy<T> {
+	#[inline]
 	fn as_mut(&mut self) -> &mut T {
 		match &mut self.0 {
 			OZeroCopyType::Copy(val) => val,
@@ -135,6 +137,7 @@ impl<T: SerializableItem + PartialEq + Eq> Eq for OZeroCopy<T> {}
 
 pub trait SerializableItem {
 	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError>;
+	#[inline]
 	fn serialize_as_ref(&self) -> Option<&[u8]> {
 		None
 	}
@@ -149,6 +152,7 @@ pub trait SerializableItem {
 	where
 		Self: Sized;
 	#[allow(unused)]
+	#[inline]
 	fn deserialize_as_ref(data: &[u8]) -> Option<&Self>
 	where
 		Self: Sized,
@@ -156,6 +160,7 @@ pub trait SerializableItem {
 		None
 	}
 	#[allow(unused)]
+	#[inline]
 	fn deserialize_as_ref_mut(data: &mut [u8]) -> Option<&mut Self>
 	where
 		Self: Sized,
@@ -168,23 +173,28 @@ pub trait SerializableItem {
 macro_rules! impl_serializable_as_ref {
 	( $data_type:ident ) => {
 		impl SerializableItem for $data_type {
+			#[inline]
 			fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError> {
 				// black_box is used to be sure that the optimizer won't throw away changes to the struct
 				Ok(bytemuck::bytes_of(std::hint::black_box(self)).into())
 			}
+			#[inline]
 			fn serialize_as_ref(&self) -> Option<&[u8]> {
 				// ditto use of black_box as above
 				Some(bytemuck::bytes_of(std::hint::black_box(self)))
 			}
+			#[inline]
 			fn deserialize_to_owned(data: &[u8]) -> Result<Self, StdError> {
 				// If we're gonna clone anyway might as well use read_unaligned
 				// I don't trust the storage api to give me bytes which don't align to 8 bytes anyway
 				bytemuck::try_pod_read_unaligned(std::hint::black_box(data))
 					.map_err(|err| StdError::parse_err(stringify!($data_type), err))
 			}
+			#[inline]
 			fn deserialize_as_ref(data: &[u8]) -> Option<&Self> {
 				bytemuck::try_from_bytes(data).ok()
 			}
+			#[inline]
 			fn deserialize_as_ref_mut(data: &mut [u8]) -> Option<&mut Self> {
 				bytemuck::try_from_bytes_mut(data).ok()
 			}

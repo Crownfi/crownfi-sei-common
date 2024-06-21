@@ -79,11 +79,13 @@ impl<'a, T: StoredItem + Default> AutosavingStoredItem<T> {
 }
 impl<T: StoredItem> Deref for AutosavingStoredItem<T> {
 	type Target = T;
+	#[inline]
 	fn deref(&self) -> &Self::Target {
 		&self.value
 	}
 }
 impl<T: StoredItem> DerefMut for AutosavingStoredItem<T> {
+	#[inline]
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.value
 	}
@@ -126,11 +128,13 @@ impl<'a, T: SerializableItem + Default> AutosavingSerializableItem<T> {
 }
 impl<T: SerializableItem> Deref for AutosavingSerializableItem<T> {
 	type Target = T;
+	#[inline]
 	fn deref(&self) -> &Self::Target {
 		&self.value
 	}
 }
 impl<T: SerializableItem> DerefMut for AutosavingSerializableItem<T> {
+	#[inline]
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.value
 	}
