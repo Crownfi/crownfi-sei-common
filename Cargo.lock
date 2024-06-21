@@ -245,7 +245,7 @@ dependencies = [
 
 [[package]]
 name = "crownfi-cw-common"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "bech32",
  "bnum",
