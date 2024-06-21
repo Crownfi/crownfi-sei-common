@@ -1,5 +1,5 @@
 use std::fmt;
-use hex::{FromHex, ToHex};
+use hex::FromHex;
 use borsh::{BorshDeserialize, BorshSerialize};
 use cosmwasm_schema::{
 	cw_serde,
@@ -13,7 +13,7 @@ use sei_cosmwasm::{SeiMsg, SeiQuerier, SeiQueryWrapper};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::canonical_addr::SeiCanonicalAddr;
-use crate::{impl_serializable_borsh, storage::SerializableItem, utils::parse_ethereum_address};
+use crate::{impl_serializable_borsh, storage::SerializableItem, utils::{bytes_to_ethereum_address, parse_ethereum_address}};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
 pub enum FungibleAssetKind {
@@ -180,14 +180,7 @@ impl TryFrom<FungibleAssetKind> for FungibleAssetKindString {
 			FungibleAssetKind::Native(denom) => Ok(FungibleAssetKindString::Native(denom)),
 			FungibleAssetKind::CW20(addr) => Ok(FungibleAssetKindString::CW20(Addr::try_from(addr)?.into_string())),
 			FungibleAssetKind::ERC20(addr) => Ok(
-				FungibleAssetKindString::ERC20({
-					let mut addr_str = String::with_capacity(42);
-					addr_str.push_str("0x");
-					// The hex crate doesn't expose the chars iter, which makes me sad
-					let addr_str_no_prefix: String = addr.encode_hex();
-					addr_str.push_str(&addr_str_no_prefix);
-					addr_str
-				})
+				FungibleAssetKindString::ERC20(bytes_to_ethereum_address(&addr)?)
 			),
 		}
 	}
