@@ -202,3 +202,90 @@ pub fn storage_iter_next_key(iter: StorageIterId) -> Option<Vec<u8>> {
 pub fn storage_iter_next_value(iter: StorageIterId) -> Option<Vec<u8>> {
 	storage_iter_next_pair(iter).map(|pair| pair.1)
 }
+
+struct GlobalStoragePairIter {
+	id: StorageIterId
+}
+impl GlobalStoragePairIter {
+	pub fn new(
+		start: Option<&[u8]>,
+		end: Option<&[u8]>,
+		order: cosmwasm_std::Order,
+	) -> Self {
+		Self {
+			id: storage_iter_new(start, end, order.into())
+		}
+	}
+}
+impl Iterator for GlobalStoragePairIter {
+	type Item = (Vec<u8>, Vec<u8>);
+	fn next(&mut self) -> Option<Self::Item> {
+		storage_iter_next_pair(self.id)
+	}
+}
+
+struct GlobalStorageIter {
+	id: StorageIterId,
+	value: bool
+}
+impl GlobalStorageIter {
+	pub fn new(
+		start: Option<&[u8]>,
+		end: Option<&[u8]>,
+		order: cosmwasm_std::Order,
+		value: bool
+	) -> Self {
+		Self {
+			id: storage_iter_new(start, end, order.into()),
+			value
+		}
+	}
+}
+impl Iterator for GlobalStorageIter {
+	type Item = Vec<u8>;
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.value {
+			storage_iter_next_value(self.id)
+		} else {
+			storage_iter_next_key(self.id)
+		}
+	}
+}
+
+/// A 0 size struct which implements cosmwasm_std::Storage, intended for use with testing.
+pub struct GlobalStorage {}
+impl Storage for GlobalStorage {
+	fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
+		storage_read(key)
+	}
+	fn range<'a>(
+		&'a self,
+		start: Option<&[u8]>,
+		end: Option<&[u8]>,
+		order: cosmwasm_std::Order,
+	) -> Box<dyn Iterator<Item = cosmwasm_std::Record> + 'a> {
+		Box::new(GlobalStoragePairIter::new(start, end, order))
+	}
+	fn range_keys<'a>(
+		&'a self,
+		start: Option<&[u8]>,
+		end: Option<&[u8]>,
+		order: cosmwasm_std::Order,
+	) -> Box<dyn Iterator<Item = Vec<u8>> + 'a> {
+		Box::new(GlobalStorageIter::new(start, end, order, false))
+	}
+	fn range_values<'a>(
+		&'a self,
+		start: Option<&[u8]>,
+		end: Option<&[u8]>,
+		order: cosmwasm_std::Order,
+	) -> Box<dyn Iterator<Item = Vec<u8>> + 'a> {
+		Box::new(GlobalStorageIter::new(start, end, order, true))
+	}
+	fn set(&mut self, key: &[u8], value: &[u8]) {
+		storage_write(key, value)
+	}
+	fn remove(&mut self, key: &[u8]) {
+		storage_remove(key)
+	}
+}
