@@ -1,4 +1,4 @@
-use super::base::{storage_read_item, storage_remove, storage_write, storage_write_item};
+use super::base::{storage_read_item, storage_remove, storage_write_item};
 use super::{OZeroCopy, SerializableItem};
 use cosmwasm_std::{StdError, Storage};
 use std::ops::{Deref, DerefMut};
@@ -95,12 +95,7 @@ where
 	T: StoredItem,
 {
 	fn drop(&mut self) {
-		match &self.value.0 {
-			super::OZeroCopyType::Copy(val) => {
-				storage_write_item(T::namespace(), val).expect("serialization error on autosave")
-			}
-			super::OZeroCopyType::ZeroCopy(bytes) => storage_write(T::namespace(), bytes),
-		}
+		storage_write_item(T::namespace(), self.value.as_ref()).expect("autosave shouldn't error on serialization");
 	}
 }
 
@@ -144,12 +139,7 @@ where
 	T: SerializableItem,
 {
 	fn drop(&mut self) {
-		match &self.value.0 {
-			super::OZeroCopyType::Copy(val) => {
-				storage_write_item(&self.namespace, val).expect("serialization error on autosave")
-			}
-			super::OZeroCopyType::ZeroCopy(bytes) => storage_write(&self.namespace, bytes),
-		}
+		storage_write_item(&self.namespace, self.value.as_ref()).expect("autosave shouldn't error on serialization");
 	}
 }
 

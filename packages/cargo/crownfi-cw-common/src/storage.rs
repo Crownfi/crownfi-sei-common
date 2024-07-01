@@ -51,20 +51,6 @@ pub fn concat_byte_array_pairs(a: &[u8], b: &[u8]) -> Vec<u8> {
 	result
 }
 
-#[derive(Debug, Clone)]
-enum OZeroCopyType<T: Sized + SerializableItem> {
-	Copy(T),
-	ZeroCopy(Vec<u8>),
-}
-impl<T> Default for OZeroCopyType<T>
-where
-	T: Default + Sized + SerializableItem,
-{
-	fn default() -> Self {
-		OZeroCopyType::Copy(T::default())
-	}
-}
-
 /// Opportunistically zero-copy-deserialized object.
 ///
 /// This allows for a SerializableItem to be "parsed" with near-zero gas costs.
@@ -72,60 +58,82 @@ where
 /// This object exists because while ideally we would convert a Vec<u8> into a Box<T>, the issue is that one of Rust's
 /// guarantees is that the alignment of a block of data allocated on the heap does not change, or rather, calls to
 /// `alloc` and `dealloc` will be provided the same size and layout.
-#[derive(Debug, Default, Clone)]
-pub struct OZeroCopy<T: Sized + SerializableItem>(OZeroCopyType<T>);
+#[derive(Debug, Default)]
+//pub struct OZeroCopy<T: Sized + SerializableItem>(OZeroCopyType<T>);
+ 
+pub struct OZeroCopy<T: Sized + SerializableItem>{
+	inner_box: Box<T>,
+	original_vec_capacity: usize
+}
 impl<T: Sized + SerializableItem> OZeroCopy<T> {
 	pub fn new(bytes: Vec<u8>) -> Result<Self, StdError> {
-		if T::deserialize_as_ref(&bytes).is_some() {
-			Ok(OZeroCopy(OZeroCopyType::ZeroCopy(bytes)))
-		} else {
-			Ok(OZeroCopy(OZeroCopyType::Copy(T::deserialize_to_owned(&bytes)?)))
+		// SAFTY:
+		// * It is assumed that the `deserialize_vec_into_box` implementation is valid
+		// * The Box is converted back into a Vec when self is dropped.
+		unsafe {
+			match T::deserialize_vec_into_box(bytes) {
+				Err(bytes) => {
+					Ok(
+						Self {
+							inner_box: Box::new(T::deserialize_to_owned(bytes.as_ref())?),
+							original_vec_capacity: 0
+						}
+					)
+				}
+				Ok((inner_box, original_vec_capacity)) => {
+					Ok(
+						Self { inner_box, original_vec_capacity }
+					)
+				}
+			}
 		}
 	}
 	pub fn from_inner(value: T) -> Self {
-		Self(OZeroCopyType::Copy(value))
-	}
-	pub fn into_inner(self) -> T {
-		match self.0 {
-			OZeroCopyType::Copy(val) => val,
-			OZeroCopyType::ZeroCopy(bytes) => T::deserialize_to_owned(&bytes)
-				.expect("deserialize_to_owned should succeed if deserialize_as_ref did before"),
+		Self {
+			inner_box: Box::new(value),
+			original_vec_capacity: 0
 		}
 	}
+	pub fn into_inner(self) -> T where T: Clone {
+		let inner_value = *self.inner_box.clone();
+		inner_value
+		// self should still be dropped as normal
+	}
 	pub fn try_into_bytes(self) -> Result<Vec<u8>, StdError> {
-		Ok(match self.0 {
-			OZeroCopyType::Copy(val) => val.serialize_to_owned()?,
-			OZeroCopyType::ZeroCopy(bytes) => bytes,
-		})
+		if self.original_vec_capacity == 0 && std::mem::size_of::<T>() != 0 {
+			let ptr = Box::into_raw(self.inner_box) as *mut u8;
+			let length = std::mem::size_of::<T>();
+			let capacity = self.original_vec_capacity;
+			// SAFTY: original_vec_capacity should only be non-zero if this was originally created with a Vec<u8>
+			Ok(unsafe {
+				Vec::from_raw_parts(ptr, length, capacity)
+			})
+		} else {
+			self.inner_box.serialize_to_owned()
+		}
 	}
 }
 impl<T: Sized + SerializableItem> AsRef<T> for OZeroCopy<T> {
 	#[inline]
 	fn as_ref(&self) -> &T {
-		match &self.0 {
-			OZeroCopyType::Copy(val) => val,
-			OZeroCopyType::ZeroCopy(bytes) => T::deserialize_as_ref(bytes).unwrap(),
-		}
+		self.inner_box.as_ref()
 	}
 }
 impl<T: Sized + SerializableItem> AsMut<T> for OZeroCopy<T> {
 	#[inline]
 	fn as_mut(&mut self) -> &mut T {
-		match &mut self.0 {
-			OZeroCopyType::Copy(val) => val,
-			OZeroCopyType::ZeroCopy(bytes) => T::deserialize_as_ref_mut(bytes).unwrap(),
-		}
+		self.inner_box.as_mut()
 	}
 }
 impl<T: Sized + SerializableItem> Deref for OZeroCopy<T> {
 	type Target = T;
 	fn deref(&self) -> &Self::Target {
-		self.as_ref()
+		self.inner_box.deref()
 	}
 }
 impl<T: Sized + SerializableItem> DerefMut for OZeroCopy<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		self.as_mut()
+		self.inner_box.deref_mut()
 	}
 }
 impl<T: SerializableItem + PartialEq> PartialEq for OZeroCopy<T> {
@@ -134,6 +142,26 @@ impl<T: SerializableItem + PartialEq> PartialEq for OZeroCopy<T> {
 	}
 }
 impl<T: SerializableItem + PartialEq + Eq> Eq for OZeroCopy<T> {}
+impl<T: SerializableItem + Clone> Clone for OZeroCopy<T> {
+	fn clone(&self) -> Self {
+		Self { inner_box: self.inner_box.clone(), original_vec_capacity: 0 }
+	}
+}
+impl<T: SerializableItem> Drop for OZeroCopy<T> {
+	fn drop(&mut self) {
+		if self.original_vec_capacity == 0 && std::mem::size_of::<T>() != 0 {
+			let ptr = Box::into_raw(std::mem::take(&mut self.inner_box)) as *mut u8;
+			let length = std::mem::size_of::<T>();
+			let capacity = self.original_vec_capacity;
+			// SAFTY: original_vec_capacity should only be non-zero if this was originally created with a Vec<u8>
+			drop(
+				unsafe {
+					Vec::from_raw_parts(ptr, length, capacity)
+				}
+			);
+		}
+	}
+}
 
 pub trait SerializableItem {
 	fn serialize_to_owned(&self) -> Result<Vec<u8>, StdError>;
@@ -167,6 +195,28 @@ pub trait SerializableItem {
 	{
 		None
 	}
+
+	/// # SAFTY
+	/// * `deserialize_as_ref_mut` implementation must only be `Some` if:
+	///   * The slice of `data.as_mut()` is aligned for `Self`
+	///   * The length of `data` is equal to the size of `Self`
+	/// * You must convert the `Box<Self>` it back into a `Vec<u8>` before deallocating
+	unsafe fn deserialize_vec_into_box(mut data: Vec<u8>) -> Result<(Box<Self>, usize), Vec<u8>>
+	where
+		Self: Sized
+	{
+		// Check if a cast is valid
+		if Self::deserialize_as_ref_mut(data.as_mut()).is_none() {
+			return Err(data);
+		}
+		let ptr = data.as_mut_ptr() as *mut Self;
+		let capacity = data.capacity();
+		std::mem::forget(data);
+		// SAFTY: Relies on the `deserialize_as_ref_mut` implementation fulfilling the requirements noted above
+		unsafe {
+			Ok((Box::from_raw(ptr), capacity))
+		}
+	}
 }
 
 #[macro_export]
@@ -185,8 +235,6 @@ macro_rules! impl_serializable_as_ref {
 			}
 			#[inline]
 			fn deserialize_to_owned(data: &[u8]) -> Result<Self, StdError> {
-				// If we're gonna clone anyway might as well use read_unaligned
-				// I don't trust the storage api to give me bytes which don't align to 8 bytes anyway
 				bytemuck::try_pod_read_unaligned(std::hint::black_box(data))
 					.map_err(|err| StdError::parse_err(stringify!($data_type), err))
 			}
