@@ -22,7 +22,7 @@ pub fn lexicographic_next(bytes: &[u8]) -> Vec<u8> {
 
 /// Parses an ethereum address, ignoring checksum casing
 pub fn parse_ethereum_address(addr_str: &str) -> Result<[u8; 20], StdError> {
-	if addr_str.starts_with("0x") {
+	if !addr_str.starts_with("0x") {
 		return Err(StdError::parse_err("[u8; 20]", "parse_ethereum_address: address does not start with 0x"));
 	}
 	Ok(
