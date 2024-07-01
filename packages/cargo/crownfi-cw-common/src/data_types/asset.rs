@@ -209,7 +209,7 @@ impl From<&str> for FungibleAssetKindString {
 			return Self::CW20(value["cw20/".len()..].into());
 		}
 		if value.starts_with("erc20/") {
-			return Self::CW20(value["erc20/".len()..].into());
+			return Self::ERC20(value["erc20/".len()..].into());
 		}
 		Self::Native(value.into())
 	}
@@ -220,7 +220,7 @@ impl From<String> for FungibleAssetKindString {
 			return Self::CW20(value["cw20/".len()..].into());
 		}
 		if value.starts_with("erc20/") {
-			return Self::CW20(value["erc20/".len()..].into());
+			return Self::ERC20(value["erc20/".len()..].into());
 		}
 		Self::Native(value)
 	}
@@ -257,7 +257,7 @@ impl<'de> Deserialize<'de> for FungibleAssetKindString {
 			return Ok(Self::CW20(string["cw20/".len()..].to_string()));
 		}
 		if string.starts_with("erc20/") {
-			return Ok(Self::CW20(string["erc20/".len()..].to_string()));
+			return Ok(Self::ERC20(string["erc20/".len()..].to_string()));
 		}
 		Ok(Self::Native(string))
 	}
@@ -271,7 +271,7 @@ impl JsonSchema for FungibleAssetKindString {
 	}
 }
 
-/// Represents a token balance of "any" token! (Currently either native or cw20)
+/// Represents a token balance of "any" token! (Currently either native, cw20, or erc20)
 #[cw_serde]
 pub enum FungibleAsset {
 	Native(Coin),
