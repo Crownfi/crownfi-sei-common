@@ -365,7 +365,7 @@ impl FungibleAsset {
 				to: coin.address.clone(),
 				data: {
 					let mut buff = Vec::with_capacity(68);
-					buff.extend_from_slice(&[0x23, 0xb8, 0x72, 0xdd]); // ERC20 transfer sig
+					buff.extend_from_slice(&[0xa9, 0x05, 0x9c, 0xbb]); // ERC20 transfer sig
 					buff.extend_from_slice(&[0; 12]);
 					if to.as_str().starts_with("0x") {
 						buff.extend_from_slice(
