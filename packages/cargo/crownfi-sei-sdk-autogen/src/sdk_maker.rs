@@ -360,20 +360,29 @@ impl CrownfiSdkMaker {
 				.as_ref()
 				.and_then(|instance_type| instance_type.as_single())
 			else {
-				return Err(SdkMakerError::MalformedEnumVariant(msg_type_name.to_string()));
+				return Err(SdkMakerError::MalformedEnumVariant(
+					msg_type_name.to_string(),
+					"instance_type is not a single".to_string()
+				));
 			};
 			match instance_type {
 				InstanceType::String => {
 					let Some(enum_values) = enum_varient_def
 						.enum_values
 						.as_ref()
-						.filter(|enum_values| enum_values.len() > 1)
+						.filter(|enum_values| enum_values.len() > 0)
 					else {
-						return Err(SdkMakerError::MalformedEnumVariant(msg_type_name.to_string()));
+						return Err(SdkMakerError::MalformedEnumVariant(
+							msg_type_name.to_string(),
+							"empty enum_values for String enum variant".to_string()
+						));
 					};
 					for enum_variant in enum_values.iter() {
 						let Some(enum_variant) = enum_variant.as_str() else {
-							return Err(SdkMakerError::MalformedEnumVariant(msg_type_name.to_string()));
+							return Err(SdkMakerError::MalformedEnumVariant(
+								msg_type_name.to_string(),
+								"string enum variant is specified with a non-string value".to_string()
+							));
 						};
 						self.codegen_contract_method(
 							output,
@@ -391,7 +400,10 @@ impl CrownfiSdkMaker {
 						.as_ref()
 						.filter(|object| object.required.len() == 1 && object.properties.len() == 1)
 					else {
-						return Err(SdkMakerError::MalformedEnumVariant(msg_type_name.to_string()));
+						return Err(SdkMakerError::MalformedEnumVariant(
+							msg_type_name.to_string(),
+							"object has more than one property".to_string()
+						));
 					};
 					let (enum_variant, enum_variant_schema) = object
 						.properties
@@ -450,7 +462,10 @@ impl CrownfiSdkMaker {
 					)?;
 				}
 				_ => {
-					return Err(SdkMakerError::MalformedEnumVariant(msg_type_name.to_string()));
+					return Err(SdkMakerError::MalformedEnumVariant(
+						msg_type_name.to_string(),
+						"instance_type neither string nor object".to_string()
+					));
 				}
 			}
 		}

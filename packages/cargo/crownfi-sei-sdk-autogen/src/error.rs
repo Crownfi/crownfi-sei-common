@@ -20,10 +20,10 @@ pub enum SdkMakerError {
 		"The \"which\" crate this depends upon doesn't know how to search for executable programs in a wasm space"
 	)]
 	Json2TsNotFound(()),
-	#[error("{0} Is not an enum. (Must be made up of subschemas using one_of)")]
+	#[error("{0} is not an enum. (Must be made up of subschemas using one_of)")]
 	MsgTypeNotEnum(String),
-	#[error("{0} has an enum varient which is neither schema'd as an object with a single property nor a string")]
-	MalformedEnumVariant(String),
+	#[error("{0} has a malformed enum variant: {1}")]
+	MalformedEnumVariant(String, String),
 	#[error("{0}::{1} is expected to have named fields")]
 	EnumNamedFieldsExpected(String, String),
 	#[error("{0}::{1}.{2} is not represented by a referenced type or non-object primitive")]

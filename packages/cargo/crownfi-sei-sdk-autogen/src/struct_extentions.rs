@@ -34,12 +34,15 @@ impl<T> SingleOrVecStructExtentions<T> for SingleOrVec<T> {
 	fn is_single(&self) -> bool {
 		match self {
 			SingleOrVec::Single(_) => true,
-			SingleOrVec::Vec(_) => false,
+			SingleOrVec::Vec(vec) => vec.len() == 1,
 		}
 	}
 	#[inline]
 	fn is_vec(&self) -> bool {
-		!self.is_single()
+		match self {
+			SingleOrVec::Single(_) => false,
+			SingleOrVec::Vec(_) => true,
+		}
 	}
 	#[inline]
 	fn get_first(&self) -> Option<&T> {
@@ -52,7 +55,7 @@ impl<T> SingleOrVecStructExtentions<T> for SingleOrVec<T> {
 	fn as_single(&self) -> Option<&T> {
 		match self {
 			SingleOrVec::Single(val) => Some(val.as_ref()),
-			SingleOrVec::Vec(_) => None,
+			SingleOrVec::Vec(vec) => {vec.get(0).filter(|_|{ vec.len() == 1 })},
 		}
 	}
 
