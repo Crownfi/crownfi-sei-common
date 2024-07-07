@@ -1,6 +1,7 @@
 use convert_case::{Case, Casing};
 use cosmwasm_schema::QueryResponses;
 use itertools::Itertools;
+use lazy_regex::regex;
 use schemars::{
 	schema::{InstanceType, RootSchema, Schema, SchemaObject, SingleOrVec},
 	schema_for, JsonSchema,
@@ -14,6 +15,7 @@ use std::{
 	rc::Rc,
 	sync::{Arc, OnceLock},
 };
+
 #[cfg(not(target_family = "wasm"))]
 use which::which;
 
@@ -227,6 +229,8 @@ impl CrownfiSdkMaker {
 			.arg(TYPESCRIPT_OUTPUT_DISCLAIMER_COMMENT)
 			.arg("--unreachableDefinitions")
 			.arg("true")
+			.arg("--additionalProperties")
+			.arg("false")
 			.stdin(Stdio::piped())
 			.spawn()?;
 		output_path.pop();
@@ -250,7 +254,12 @@ impl CrownfiSdkMaker {
 		msg_enum_variant: &str,
 		msg_enum_varient_fields: MethodArgType,
 		kind: MethodGenType,
+		description: &str,
 	) -> Result<(), SdkMakerError> {
+		if description.len() > 0 {
+			writeln!(output, "\t/** {0} */", regex!(r"\*/").replace_all(description, "* /"))?;
+		}
+
 		write!(output, "\t{}(", kind.generate_method_name(msg_enum_variant))?;
 		if kind.prepend_extra_args() {
 			output.write_all(kind.extra_func_args().as_bytes())?;
@@ -262,13 +271,19 @@ impl CrownfiSdkMaker {
 				if kind.prepend_extra_args() {
 					write!(output, ", ")?;
 				}
-				write!(output, "args: {{")?;
+				write!(output, "args: {{\n")?;
 
 				let mut fields_iter = msg_enum_varient_fields.properties.iter().peekable();
 				while let Some((key, value)) = fields_iter.next() {
+					if let Some(value_description) = value
+						.as_object()
+						.and_then(|schema| Some(schema.metadata.as_ref()?.as_ref().description.as_deref()?))
+					{
+						write!(output, "\t\t/** {0} */\n", value_description)?;
+					}
 					write!(
 						output,
-						"\"{}\"{}: {}",
+						"\t\t\"{}\"{}: {}",
 						key.escape_default(),
 						if msg_enum_varient_fields.required.contains(key) {
 							""
@@ -280,10 +295,12 @@ impl CrownfiSdkMaker {
 
 					//match value.as
 					if fields_iter.peek().is_some() {
-						write!(output, ", ")?;
+						write!(output, ",\n")?;
+					} else {
+						write!(output, "\n")?;
 					}
 				}
-				write!(output, "}}")?;
+				write!(output, "\t}}")?;
 				if msg_enum_varient_fields.required.len() == 0 {
 					write!(output, " = {{}}")?;
 				}
@@ -362,7 +379,7 @@ impl CrownfiSdkMaker {
 			else {
 				return Err(SdkMakerError::MalformedEnumVariant(
 					msg_type_name.to_string(),
-					"instance_type is not a single".to_string()
+					"instance_type is not a single".to_string(),
 				));
 			};
 			match instance_type {
@@ -374,16 +391,21 @@ impl CrownfiSdkMaker {
 					else {
 						return Err(SdkMakerError::MalformedEnumVariant(
 							msg_type_name.to_string(),
-							"empty enum_values for String enum variant".to_string()
+							"empty enum_values for String enum variant".to_string(),
 						));
 					};
 					for enum_variant in enum_values.iter() {
 						let Some(enum_variant) = enum_variant.as_str() else {
 							return Err(SdkMakerError::MalformedEnumVariant(
 								msg_type_name.to_string(),
-								"string enum variant is specified with a non-string value".to_string()
+								"string enum variant is specified with a non-string value".to_string(),
 							));
 						};
+						let description = enum_varient_def
+							.metadata
+							.as_ref()
+							.and_then(|val| val.as_ref().description.as_deref())
+							.unwrap_or_default();
 						self.codegen_contract_method(
 							output,
 							required_types,
@@ -391,6 +413,7 @@ impl CrownfiSdkMaker {
 							enum_variant,
 							MethodArgType::None,
 							kind,
+							description,
 						)?;
 					}
 				}
@@ -402,7 +425,7 @@ impl CrownfiSdkMaker {
 					else {
 						return Err(SdkMakerError::MalformedEnumVariant(
 							msg_type_name.to_string(),
-							"object has more than one property".to_string()
+							"object has more than one property".to_string(),
 						));
 					};
 					let (enum_variant, enum_variant_schema) = object
@@ -410,6 +433,12 @@ impl CrownfiSdkMaker {
 						.iter()
 						.next()
 						.expect("object.properties.len() == 1 should mean at least 1 item is returned");
+
+					let description = enum_varient_def
+						.metadata
+						.as_ref()
+						.and_then(|val| val.as_ref().description.as_deref())
+						.unwrap_or_default();
 
 					// Quick hack, allow enum varients with references to single types
 					if let Some(type_reference) = enum_variant_schema
@@ -429,6 +458,7 @@ impl CrownfiSdkMaker {
 							enum_variant,
 							MethodArgType::TypeRef(type_reference),
 							kind,
+							description,
 						)?;
 						continue;
 					}
@@ -442,10 +472,17 @@ impl CrownfiSdkMaker {
 							enum_variant.clone(),
 						));
 					}
-					let Some(enum_variant_schema) = enum_variant_schema
-						.as_object()
-						.and_then(|enum_variant_schema| enum_variant_schema.object.as_ref())
-						.map(|enum_variant_schema| enum_variant_schema.as_ref())
+					let Some((enum_variant_schema, other_description)) =
+						enum_variant_schema.as_object().and_then(|enum_variant_schema| {
+							Some((
+								enum_variant_schema.object.as_ref()?.as_ref(),
+								enum_variant_schema
+									.metadata
+									.as_ref()
+									.and_then(|metadata| metadata.description.as_deref())
+									.unwrap_or_default(),
+							))
+						})
 					else {
 						return Err(SdkMakerError::EnumNamedFieldsExpected(
 							msg_type_name.to_string(),
@@ -459,12 +496,17 @@ impl CrownfiSdkMaker {
 						enum_variant,
 						MethodArgType::Object(enum_variant_schema),
 						kind,
+						if other_description.len() > 0 {
+							other_description
+						} else {
+							description
+						},
 					)?;
 				}
 				_ => {
 					return Err(SdkMakerError::MalformedEnumVariant(
 						msg_type_name.to_string(),
-						"instance_type neither string nor object".to_string()
+						"instance_type neither string nor object".to_string(),
 					));
 				}
 			}

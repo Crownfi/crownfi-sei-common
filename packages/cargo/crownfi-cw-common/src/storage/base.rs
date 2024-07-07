@@ -204,16 +204,12 @@ pub fn storage_iter_next_value(iter: StorageIterId) -> Option<Vec<u8>> {
 }
 
 struct GlobalStoragePairIter {
-	id: StorageIterId
+	id: StorageIterId,
 }
 impl GlobalStoragePairIter {
-	pub fn new(
-		start: Option<&[u8]>,
-		end: Option<&[u8]>,
-		order: cosmwasm_std::Order,
-	) -> Self {
+	pub fn new(start: Option<&[u8]>, end: Option<&[u8]>, order: cosmwasm_std::Order) -> Self {
 		Self {
-			id: storage_iter_new(start, end, order.into())
+			id: storage_iter_new(start, end, order.into()),
 		}
 	}
 }
@@ -226,18 +222,13 @@ impl Iterator for GlobalStoragePairIter {
 
 struct GlobalStorageIter {
 	id: StorageIterId,
-	value: bool
+	value: bool,
 }
 impl GlobalStorageIter {
-	pub fn new(
-		start: Option<&[u8]>,
-		end: Option<&[u8]>,
-		order: cosmwasm_std::Order,
-		value: bool
-	) -> Self {
+	pub fn new(start: Option<&[u8]>, end: Option<&[u8]>, order: cosmwasm_std::Order, value: bool) -> Self {
 		Self {
 			id: storage_iter_new(start, end, order.into()),
-			value
+			value,
 		}
 	}
 }

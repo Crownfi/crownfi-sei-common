@@ -1,11 +1,11 @@
 #[macro_export]
 /// `impl_from_cosmwasm_std_error!(FromErrorType, YourErrorType)`
-/// 
+///
 /// Adds a `From<FromErrorType>` implementation to `YourErrorType` where
-/// `FromErrorType impl Into<cosmwasm_std::StdError>` 
-/// 
+/// `FromErrorType impl Into<cosmwasm_std::StdError>`
+///
 /// You can use this in situations where you can't have a blanket implementation.
-/// 
+///
 /// This assumes `YourErrorType` is an enum where `YourErrorType::Std(cosmwasm_std::StdError)` is valid.
 macro_rules! impl_from_cosmwasm_std_error {
 	($from_type:ty, $to_type:ty) => {
@@ -19,11 +19,11 @@ macro_rules! impl_from_cosmwasm_std_error {
 
 #[macro_export]
 /// `impl_from_cosmwasm_std_error_common!(YourErrorType)`
-/// 
+///
 /// Adds `From` implementation for all the error types exported by `cosmwasm_std`to `YourErrorType`
-/// 
+///
 /// You can use this in situations where you can't have a blanket implementation.
-/// 
+///
 /// This assumes `YourErrorType` is an enum where `YourErrorType::Std(cosmwasm_std::StdError)` is valid.
 macro_rules! impl_from_cosmwasm_std_error_common {
 	($to_type:ty) => {

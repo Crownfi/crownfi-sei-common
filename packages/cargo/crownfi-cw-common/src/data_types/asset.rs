@@ -1,25 +1,30 @@
-use std::fmt;
-use hex::FromHex;
 use borsh::{BorshDeserialize, BorshSerialize};
 use cosmwasm_schema::{
 	cw_serde,
 	schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema},
 };
 use cosmwasm_std::{
-	to_json_binary, Addr, BankMsg, Binary, Coin, ConversionOverflowError, CosmosMsg, QuerierWrapper, StdError, Uint128, Uint256, WasmMsg
+	to_json_binary, Addr, BankMsg, Binary, Coin, ConversionOverflowError, CosmosMsg, QuerierWrapper, StdError, Uint128,
+	Uint256, WasmMsg,
 };
 use cw20::{BalanceResponse as Cw20BalanceResponse, Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
+use hex::FromHex;
 use sei_cosmwasm::{SeiMsg, SeiQuerier, SeiQueryWrapper};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 
 use super::canonical_addr::SeiCanonicalAddr;
-use crate::{impl_serializable_borsh, storage::SerializableItem, utils::{bytes_to_ethereum_address, parse_ethereum_address}};
+use crate::{
+	impl_serializable_borsh,
+	storage::SerializableItem,
+	utils::{bytes_to_ethereum_address, parse_ethereum_address},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, BorshDeserialize, BorshSerialize)]
 pub enum FungibleAssetKind {
 	Native(String),
 	CW20(SeiCanonicalAddr),
-	ERC20([u8; 20])
+	ERC20([u8; 20]),
 }
 impl_serializable_borsh!(FungibleAssetKind);
 
@@ -27,19 +32,19 @@ impl FungibleAssetKind {
 	pub fn is_native(&self) -> bool {
 		match self {
 			FungibleAssetKind::Native(_) => true,
-			_ => false
+			_ => false,
 		}
 	}
 	pub fn is_cw20(&self) -> bool {
 		match self {
 			FungibleAssetKind::CW20(_) => true,
-			_ => false
+			_ => false,
 		}
 	}
 	pub fn is_erc20(&self) -> bool {
 		match self {
 			FungibleAssetKind::ERC20(_) => true,
-			_ => false
+			_ => false,
 		}
 	}
 }
@@ -52,19 +57,20 @@ impl TryFrom<FungibleAssetKindString> for FungibleAssetKind {
 			FungibleAssetKindString::CW20(addr) => Ok(FungibleAssetKind::CW20(Addr::unchecked(addr).try_into()?)),
 			FungibleAssetKindString::ERC20(addr) => {
 				if !addr.starts_with("0x") {
-					return Err(StdError::parse_err("FungibleAssetKindString::ERC20", "Contract address doesn't start with 0x"));
+					return Err(StdError::parse_err(
+						"FungibleAssetKindString::ERC20",
+						"Contract address doesn't start with 0x",
+					));
 				}
-				Ok(
-					FungibleAssetKind::ERC20(<[u8; 20]>::from_hex(
-						addr.split_at(2).1
-					).map_err(|err| {
+				Ok(FungibleAssetKind::ERC20(
+					<[u8; 20]>::from_hex(addr.split_at(2).1).map_err(|err| {
 						StdError::parse_err(
 							"FungibleAssetKindString::ERC20",
-							format!("Contract address is not valid: {err}")
+							format!("Contract address is not valid: {err}"),
 						)
-					})?)
-				)
-			},
+					})?,
+				))
+			}
 		}
 	}
 }
@@ -80,19 +86,19 @@ impl FungibleAssetKindString {
 	pub fn is_native(&self) -> bool {
 		match self {
 			FungibleAssetKindString::Native(_) => true,
-			_ => false
+			_ => false,
 		}
 	}
 	pub fn is_cw20(&self) -> bool {
 		match self {
 			FungibleAssetKindString::CW20(_) => true,
-			_ => false
+			_ => false,
 		}
 	}
 	pub fn is_erc20(&self) -> bool {
 		match self {
 			FungibleAssetKindString::ERC20(_) => true,
-			_ => false
+			_ => false,
 		}
 	}
 	pub fn into_asset<A: Into<Uint128>>(self, amount: A) -> FungibleAsset {
@@ -112,14 +118,10 @@ impl FungibleAssetKindString {
 		}
 	}
 	/// Queries the balance of the specified holder.
-	/// 
+	///
 	/// Note that in the case of ERC20 assets, a 0x\* addremss may be provided, and sei1* addresses will be attempted to
 	/// be converted to 0x\* addresses. If the conversion attempt fails, this will return 0.
-	pub fn query_balance(
-		&self,
-		querier: &QuerierWrapper<SeiQueryWrapper>,
-		holder: &Addr,
-	) -> Result<Uint128, StdError> {
+	pub fn query_balance(&self, querier: &QuerierWrapper<SeiQueryWrapper>, holder: &Addr) -> Result<Uint128, StdError> {
 		match self {
 			FungibleAssetKindString::Native(denom) => Ok(querier.query_balance(holder, denom)?.amount),
 			FungibleAssetKindString::CW20(address) => Ok(querier
@@ -135,10 +137,11 @@ impl FungibleAssetKindString {
 				} else {
 					let holder_canonical = SeiCanonicalAddr::try_from(holder)?;
 					if holder_canonical.is_externally_owned_address() {
-						let Some(evm_address) = querier.get_evm_address(holder.clone().into_string())
+						let Some(evm_address) = querier
+							.get_evm_address(holder.clone().into_string())
 							.ok()
-							.map(|result| {result.evm_address})
-							.filter(|evm_address| {evm_address.len() > 0})
+							.map(|result| result.evm_address)
+							.filter(|evm_address| evm_address.len() > 0)
 						else {
 							return Ok(Uint128::zero());
 						};
@@ -148,28 +151,33 @@ impl FungibleAssetKindString {
 					}
 				}
 				let evm_result = Binary::from_base64(
-					&querier.static_call(
-						// We don't know who the caller is, but who cares?
-						"sei1llllllllllllllllllllllllllllllllllllllllllllllllllls09qcrc".into(),
-						address.clone(),
-						Binary::from(evm_payload).to_base64()
-					)?.encoded_data
+					&querier
+						.static_call(
+							// We don't know who the caller is, but who cares?
+							"sei1llllllllllllllllllllllllllllllllllllllllllllllllllls09qcrc".into(),
+							address.clone(),
+							Binary::from(evm_payload).to_base64(),
+						)?
+						.encoded_data,
 				)?;
 				if evm_result.len() != 32 {
 					return Err(StdError::parse_err(
 						"Uint256",
-						"balanceOf(address) EVM call did not return a 32 byte long result"
+						"balanceOf(address) EVM call did not return a 32 byte long result",
 					));
 				}
 				if evm_result[0..16] != [0; 16] {
 					return Err(ConversionOverflowError::new(
 						"Uint256",
 						"Uint128",
-						Uint256::from_be_bytes(evm_result.0.try_into().unwrap())
-					).into());
+						Uint256::from_be_bytes(evm_result.0.try_into().unwrap()),
+					)
+					.into());
 				}
-				Ok(Uint128::from(<u128>::from_be_bytes(evm_result.0[16..].try_into().unwrap())))
-			},
+				Ok(Uint128::from(<u128>::from_be_bytes(
+					evm_result.0[16..].try_into().unwrap(),
+				)))
+			}
 		}
 	}
 }
@@ -179,9 +187,7 @@ impl TryFrom<FungibleAssetKind> for FungibleAssetKindString {
 		match value {
 			FungibleAssetKind::Native(denom) => Ok(FungibleAssetKindString::Native(denom)),
 			FungibleAssetKind::CW20(addr) => Ok(FungibleAssetKindString::CW20(Addr::try_from(addr)?.into_string())),
-			FungibleAssetKind::ERC20(addr) => Ok(
-				FungibleAssetKindString::ERC20(bytes_to_ethereum_address(&addr)?)
-			),
+			FungibleAssetKind::ERC20(addr) => Ok(FungibleAssetKindString::ERC20(bytes_to_ethereum_address(&addr)?)),
 		}
 	}
 }
@@ -199,7 +205,7 @@ impl fmt::Display for FungibleAssetKindString {
 				f.write_str("erc20/")?;
 				f.write_str(string)?;
 				Ok(())
-			},
+			}
 		}
 	}
 }
@@ -276,7 +282,7 @@ impl JsonSchema for FungibleAssetKindString {
 pub enum FungibleAsset {
 	Native(Coin),
 	CW20(Cw20Coin),
-	ERC20(Cw20Coin)
+	ERC20(Cw20Coin),
 }
 
 impl FungibleAsset {
@@ -310,7 +316,7 @@ impl FungibleAsset {
 			}
 			FungibleAsset::ERC20(coin) => {
 				format!("erc20/{}", coin.address)
-			},
+			}
 		}
 	}
 
@@ -333,16 +339,16 @@ impl FungibleAsset {
 					return false;
 				};
 				return coin.address == other_coin.address;
-			},
+			}
 		}
 	}
 	/// Generates a transfer message for this asset
-	/// 
+	///
 	/// Note that in the case of ERC20, you should provide a 0x\* address, as this function encodes sei1\* addresses
-	/// for users wrongly. 
-	/// 
+	/// for users wrongly.
+	///
 	/// This function may panic if Addr is invalid
-	/// 
+	///
 	/// **FIXME:** Replace with falliable varient which can also take the querier to do proper sei1\* <> 0x\* address
 	/// conversion.
 	pub fn transfer_to_msg(&self, to: &Addr) -> CosmosMsg<SeiMsg> {
@@ -350,7 +356,8 @@ impl FungibleAsset {
 			FungibleAsset::Native(coin) => BankMsg::Send {
 				to_address: to.to_string(),
 				amount: vec![coin.clone()],
-			}.into(),
+			}
+			.into(),
 			FungibleAsset::CW20(coin) => WasmMsg::Execute {
 				contract_addr: coin.address.clone(),
 				msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
@@ -359,7 +366,8 @@ impl FungibleAsset {
 				})
 				.expect("serialization shouldn't fail"),
 				funds: vec![],
-			}.into(),
+			}
+			.into(),
 			FungibleAsset::ERC20(coin) => SeiMsg::CallEvm {
 				value: Uint128::zero(),
 				to: coin.address.clone(),
@@ -371,7 +379,7 @@ impl FungibleAsset {
 						buff.extend_from_slice(
 							<[u8; 20]>::from_hex(to.as_str().split_at(2).1)
 								.expect("FungibleAsset::transfer_to_msg: to address isn't a valid 0x* address")
-								.as_slice()
+								.as_slice(),
 						)
 					} else {
 						let canon_addr = SeiCanonicalAddr::try_from(to)
@@ -387,8 +395,9 @@ impl FungibleAsset {
 					buff.extend_from_slice(&[0; 16]);
 					buff.extend_from_slice(&coin.amount.to_be_bytes());
 					Binary::from(buff).to_base64()
-				}
-			}.into(),
+				},
+			}
+			.into(),
 		}
 	}
 

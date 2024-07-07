@@ -55,7 +55,7 @@ impl<T> SingleOrVecStructExtentions<T> for SingleOrVec<T> {
 	fn as_single(&self) -> Option<&T> {
 		match self {
 			SingleOrVec::Single(val) => Some(val.as_ref()),
-			SingleOrVec::Vec(vec) => {vec.get(0).filter(|_|{ vec.len() == 1 })},
+			SingleOrVec::Vec(vec) => vec.get(0).filter(|_| vec.len() == 1),
 		}
 	}
 

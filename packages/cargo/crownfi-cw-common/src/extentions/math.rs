@@ -40,17 +40,12 @@ macro_rules! impl_math_ext_dependencies_bnum {
 			#[inline]
 			fn div_ceil_int(self, other: Self) -> Self {
 				// Uint256 doesn't let us access its inner U256, so we're doing this hack for now.
-				<$cosm_type>::from_le_bytes(
-					bytemuck::cast(
-						*<$bnum_type>::from_le_slice(
-							&self.to_le_bytes()
-						).unwrap().div_ceil(
-							<$bnum_type>::from_le_slice(
-								&other.to_le_bytes()
-							).unwrap()
-						).digits()
-					)
-				)
+				<$cosm_type>::from_le_bytes(bytemuck::cast(
+					*<$bnum_type>::from_le_slice(&self.to_le_bytes())
+						.unwrap()
+						.div_ceil(<$bnum_type>::from_le_slice(&other.to_le_bytes()).unwrap())
+						.digits(),
+				))
 			}
 		}
 	};

@@ -1,21 +1,24 @@
 use cosmwasm_std::StdResult;
 
-use super::{map::{StoredMap, StoredMapKeyIter}, SerializableItem};
+use super::{
+	map::{StoredMap, StoredMapKeyIter},
+	SerializableItem,
+};
 
 /// Represents a set a values.
-/// 
+///
 /// At the time of writing, the cosmwasm storage backend can't consistently differentiate
 /// between empty and non-existant values, so this is actually a StoredMap<V, u8> under the hood.
 #[repr(transparent)]
 pub struct StoredSet<V: SerializableItem> {
-	inner_map: StoredMap<V, u8>
+	inner_map: StoredMap<V, u8>,
 }
 
 impl<'exec, V: SerializableItem> StoredSet<V> {
 	#[inline]
 	pub fn new(namespace: &'static [u8]) -> Self {
 		Self {
-			inner_map: StoredMap::new(namespace)
+			inner_map: StoredMap::new(namespace),
 		}
 	}
 	#[inline]

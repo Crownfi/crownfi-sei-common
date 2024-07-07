@@ -13,8 +13,8 @@ use self::base::{storage_iter_new, storage_iter_next_key, storage_iter_next_pair
 pub mod base;
 pub mod item;
 pub mod map;
-pub mod set;
 pub mod queue;
+pub mod set;
 pub mod vec;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
