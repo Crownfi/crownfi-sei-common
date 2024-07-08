@@ -43,6 +43,8 @@ fn type_to_module() -> &'static HashMap<Arc<str>, Arc<str>> {
 	VALUE.get_or_init(|| {
 		let mut m = HashMap::new();
 		m.insert("ContractBase".into(), "@crownfi/sei-utils".into());
+		m.insert("QueryClient".into(), "@cosmjs/stargate".into());
+		m.insert("WasmExtension".into(), "@cosmjs/cosmwasm-stargate".into());
 		m.insert("ExecuteInstruction".into(), "@cosmjs/cosmwasm-stargate".into());
 		m.insert("Coin".into(), "@cosmjs/amino".into());
 		// put Addr and shit here
@@ -69,9 +71,10 @@ pub struct ContractSdkContractDefinition {
 	pub migrate_type: Option<Rc<str>>,
 	pub sudo_type: Option<Rc<str>>,
 	pub cw20_hook_type: Option<Rc<str>>,
+	pub name_and_version: Option<(Rc<str>, Rc<str>)>,
 }
 impl ContractSdkContractDefinition {
-	pub fn new(dummy_schema: &RootSchema) -> Self {
+	pub fn new(dummy_schema: &RootSchema, name_and_version: Option<(Rc<str>, Rc<str>)>) -> Self {
 		let schema_property_to_type_name = |schema: &_| {
 			match schema {
 				Schema::Bool(_) => None,
@@ -87,6 +90,7 @@ impl ContractSdkContractDefinition {
 			}
 		};
 		ContractSdkContractDefinition {
+			name_and_version,
 			instantiate_type: dummy_schema.schema.object.as_ref().and_then(|obj| {
 				obj.properties
 					.get("instantiate")
@@ -154,7 +158,7 @@ impl CrownfiSdkMaker {
 	/// Adds your contract message types to the schema.
 	/// It's important to note that it is expected that your message types have a unique name.
 	/// Which means, if you have multiple contracts, their query messages cannot just be called `QueryMsg`
-	pub fn add_contract<
+	pub fn add_contract_with_version<
 		InstantiateType: JsonSchema,
 		ExecuteType: JsonSchema,
 		QueryType: JsonSchema + QueryResponses,
@@ -163,9 +167,10 @@ impl CrownfiSdkMaker {
 		Cw20HookType: JsonSchema,
 	>(
 		&mut self,
-		name: &str,
+		snake_case_name: &str,
+		name_and_version: Option<(Rc<str>, Rc<str>)>
 	) -> Result<&mut Self, SdkMakerError> {
-		if !name.is_case(Case::Snake) {
+		if !snake_case_name.is_case(Case::Snake) {
 			return Err(SdkMakerError::ContractNameNotSnakeCase);
 		}
 
@@ -173,25 +178,8 @@ impl CrownfiSdkMaker {
 			ContractDummySchema::<InstantiateType, ExecuteType, QueryType, MigrateType, SudoType, Cw20HookType>
 		);
 
-		// Not sure if these 2 loops are needed.
-		// But this should account for any unused definitions being pruned
-
-		/*
-		for (property_name, property_schema) in dummy_schema.schema.object().properties.iter() {
-			self.root_schema.schema.object().properties.insert(
-				[name, "_", property_name].join("_"),
-				property_schema.clone()
-			);
-		}
-		for property_name in dummy_schema.schema.object().required.iter() {
-			self.root_schema.schema.object().required.insert(
-				[name, "_", property_name].join("_")
-			);
-		}
-		*/
-
 		self.root_schema.definitions.append(&mut dummy_schema.definitions);
-		let mut new_contract_def = ContractSdkContractDefinition::new(&dummy_schema);
+		let mut new_contract_def = ContractSdkContractDefinition::new(&dummy_schema, name_and_version);
 
 		for (query_enum_varient, response_schema) in QueryType::response_schemas().unwrap().into_iter() {
 			self.root_schema.definitions.extend(response_schema.definitions);
@@ -214,8 +202,36 @@ impl CrownfiSdkMaker {
 				.query_enum_varient_to_return_type
 				.insert(query_enum_varient.into(), new_definition_key.into());
 		}
-		self.contracts.insert(Rc::from(name), new_contract_def);
+		self.contracts.insert(Rc::from(snake_case_name), new_contract_def);
 		Ok(self)
+	}
+
+	/// Adds your contract message types to the schema.
+	/// It's important to note that it is expected that your message types have a unique name.
+	/// Which means, if you have multiple contracts, their query messages cannot just be called `QueryMsg`
+	pub fn add_contract<
+		InstantiateType: JsonSchema,
+		ExecuteType: JsonSchema,
+		QueryType: JsonSchema + QueryResponses,
+		MigrateType: JsonSchema,
+		SudoType: JsonSchema,
+		Cw20HookType: JsonSchema,
+	>(
+		&mut self,
+		snake_case_name: &str,
+	) -> Result<&mut Self, SdkMakerError> {
+		Self::add_contract_with_version::<
+			InstantiateType,
+			ExecuteType,
+			QueryType,
+			MigrateType,
+			SudoType,
+			Cw20HookType
+		>(
+			self,
+			snake_case_name,
+			None
+		)
 	}
 
 	fn codegen_types(&self, output_path: &mut PathBuf, files_list: &mut Vec<String>) -> Result<(), SdkMakerError> {
@@ -519,15 +535,26 @@ impl CrownfiSdkMaker {
 		let mut contract_body = Vec::<u8>::new();
 		for (contract_name, contract_def) in self.contracts.iter() {
 			let contract_class_name = contract_name.as_ref().to_case(Case::Pascal);
+			types_required.insert("QueryClient".into());
+			types_required.insert("WasmExtension".into());
 			types_required.insert("ContractBase".into());
 			types_required.insert("Coin".into());
 
 			writeln!(
 				contract_body,
-				"export class {}Contract extends ContractBase {{",
+				"export class {}Contract<Q extends QueryClient & WasmExtension> extends ContractBase<Q> {{",
 				contract_class_name
 			)?;
-
+			if let Some((name, version)) = &contract_def.name_and_version {
+				writeln!(
+					contract_body,
+					"\tcheckVersion(versions: {{ [name: string]: string }} = {{\"{}\": \"{}\"}}): Promise<void> {{",
+					name.escape_default(),
+					version.escape_default()
+				)?;
+				writeln!(contract_body, "\t\treturn super.checkVersion(versions);")?;
+				writeln!(contract_body, "\t}}")?;
+			}
 			if let Some(query_type) = &contract_def.query_type {
 				let query_def = self
 					.root_schema
