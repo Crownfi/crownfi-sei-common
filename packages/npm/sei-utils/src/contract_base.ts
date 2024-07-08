@@ -59,14 +59,14 @@ ContractVersionNotSatisfiedError.prototype.name = "ContractVersionNotSatisfiedEr
 /**
  * A class which is usually extended upon to generate a contract API
  */
-export class ContractBase {
+export class ContractBase<Q extends StargateQueryClient & WasmExtension> {
 	address: Addr;
-	endpoint: StargateQueryClient & WasmExtension;
+	endpoint: Q;
 	/**
 	 * @param endpoint The cosmwasm client
 	 * @param address Contract address
 	 */
-	constructor(endpoint: StargateQueryClient & WasmExtension, address: Addr) {
+	constructor(endpoint: Q, address: Addr) {
 		this.endpoint = endpoint;
 		this.address = address;
 	}
