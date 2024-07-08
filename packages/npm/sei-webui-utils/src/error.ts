@@ -1,6 +1,6 @@
 import { TimeoutError } from "@cosmjs/stargate";
 import { addErrorMsgFormatter } from "@crownfi/css-gothic-fantasy";
-import { ClientAccountMissingError, ClientNotSignableError, ClientPubkeyUnknownError, EvmAddressValidationMismatchError, NetworkEndpointNotConfiguredError, getDefaultNetworkConfig, isProbablyTxError, makeQueryErrLessFugly, makeTxExecErrLessFugly } from "@crownfi/sei-utils";
+import { ClientAccountMissingError, ClientNotSignableError, ClientPubkeyUnknownError, ContractVersionNotSatisfiedError, EvmAddressValidationMismatchError, NetworkEndpointNotConfiguredError, getDefaultNetworkConfig, makeQueryErrLessFugly, makeTxExecErrLessFugly } from "@crownfi/sei-utils";
 
 addErrorMsgFormatter((err: any) => {
 	if (!err || typeof err.message != "string") {
@@ -158,6 +158,37 @@ addErrorMsgFormatter((err: any) => {
 	return {
 		title: "Transaction timed out",
 		message: [message1, message2],
+		dialogIcon: "warning",
+		dialogClass: "warning",
+		hideDetails: true
+	}
+});
+addErrorMsgFormatter((err: any) => {
+	if (!(err instanceof ContractVersionNotSatisfiedError)) {
+		return null;
+	}
+	const msg1 = document.createElement("p");
+	msg1.innerText = `The contract located at ${
+		err.contractAddress
+	} was expected to have${
+		Object.keys(err.expectedVersions).length > 1 ? " one of" : ""
+	} the following version information:`;
+	const msg2 = document.createElement("ul");
+	for (const contractName in err.expectedVersions) {
+		const li = document.createElement("li");
+		li.innerText = `${contractName}@${err.expectedVersions[contractName]}`;
+		msg2.appendChild(li);
+	}
+	const msg3 = document.createElement("p");
+	if (err.actualVersionInfo) {
+		msg3.innerText = "However, the following incompatible version information was returned: " +
+			`${err.actualVersionInfo.name}@${err.actualVersionInfo.version}`;
+	} else {
+		msg3.innerText = "However, no version information was found. Perhaps the contract doesn't exist.";
+	}
+	return {
+		title: "Incompatible contract",
+		message: [msg1, msg2, msg3],
 		dialogIcon: "warning",
 		dialogClass: "warning",
 		hideDetails: true
