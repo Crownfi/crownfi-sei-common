@@ -5,4 +5,7 @@ export const ERC20_FUNC_BALANCE_OF = functionSignatureToABIDefinition("balanceOf
 export const ERC20_FUNC_APPROVE = functionSignatureToABIDefinition("approve(address, uint256) returns (bool success)");
 export const ERC20_FUNC_TRANSFER = functionSignatureToABIDefinition("transfer(address, uint256) returns (bool success)");
 export const ERC20_FUNC_TRANSFER_FROM = functionSignatureToABIDefinition("transferFrom(address, address, uint256) returns (bool success)")
-// If you want more, call functionSignatureToABIDefinition yourself!
+
+export const ERC20_FUNC_DECIMALS = functionSignatureToABIDefinition("decimals() view returns (uint8)");
+export const ERC20_FUNC_NAME = functionSignatureToABIDefinition("name() view returns (string)");
+export const ERC20_FUNC_SYMBOL = functionSignatureToABIDefinition("symbol() view returns (string)");

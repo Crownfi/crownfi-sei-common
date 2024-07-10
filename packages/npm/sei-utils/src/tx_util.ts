@@ -2,9 +2,7 @@ import { DeliverTxResponse } from "@cosmjs/stargate";
 import { ReceiptInformation as EvmReceiptInformation } from "@crownfi/ethereum-rpc-types";
 
 /**
- * Checks to see if the error is a failed transaction error
- * @param e exception to check if it might be a transaction error
- * @returns whether or not it might be
+ * @deprecated This doesn't consistently work. Use `makeTxExecErrLessFugly` or `makeQueryErrLessFugly` instead.
  */
 export function isProbablyTxError(e: any): e is {name: string, message: string} {
 	return e != null &&

@@ -1,9 +1,8 @@
-import { ExecuteInstruction as WasmExecuteInstruction } from "@cosmjs/cosmwasm-stargate";
+import { ExecuteInstruction as WasmExecuteInstruction, WasmExtension } from "@cosmjs/cosmwasm-stargate";
 import { Addr, ContractVersionInfo } from "./common_sei_types.js";
 import { Coin } from "@cosmjs/amino";
 import semverSatisfies from "semver/functions/satisfies.js";
 import { QueryClient as StargateQueryClient } from "@cosmjs/stargate";
-import { WasmExtension } from '@cosmjs/cosmwasm-stargate';
 import { EVMABIFunctionDefinition } from "./evm-interop-utils/index.js";
 
 const CONTRACT_INFO_KEY = Buffer.from("contract_info");

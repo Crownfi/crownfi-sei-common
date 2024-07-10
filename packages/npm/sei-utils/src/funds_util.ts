@@ -1,5 +1,38 @@
 import { Coin } from "@cosmjs/amino";
 import { SeiChainId, getDefaultNetworkConfig } from "./chain_config.js";
+import { BankExtension, QueryClient } from "@cosmjs/stargate";
+import { WasmExtension } from "@cosmjs/cosmwasm-stargate";
+import { SeiQueryClient, SeiEvmExtension } from "@crownfi/sei-js-core";
+import { queryEvmContract } from "./evm-interop-utils/query_contract.js";
+import { ERC20_FUNC_DECIMALS, ERC20_FUNC_NAME, ERC20_FUNC_SYMBOL } from "./evm-interop-utils/erc20.js";
+
+/**
+ * This represents either a native token, or a contract token.
+ * * CW20 tokens are represented with `"cw20/{contractAddress}"`
+ * * ERC20 tokens are represented with `"erc20/{contractAddress}"`
+ * * Everything else is assumed to be a native token
+ */
+export type UnifiedDenom = string;
+
+
+export interface ExternalAssetListItem {
+	name: string,
+	description: string,
+	symbol: string,
+	base: string,
+	display: string,
+	denom_units: {denom: string, exponent: number}[],
+	images: {
+		svg?: string | undefined,
+		png?: string | undefined,
+		[extension: string]: string | undefined
+	},
+	type_asset: "sdk.coin" | "erc20" | "cw20",
+	pointer_contract: {
+        "address": string,
+        "type_asset": "erc20" | "cw20"
+	}
+}
 
 /**
  * Used for `Array.prototype.sort` when dealing with `Coin[]`'s
@@ -14,65 +47,293 @@ export function nativeDenomSortCompare(a: Coin, b: Coin) {
 }
 
 // Temporary hard-coded info until our API is up and running
+/*
 const userTokenInfo: { [denom: string]: UserTokenInfo } = {
 	usei: {
 		name: "Sei",
 		symbol: "SEI",
 		decimals: 6,
-		icon: "https://app.crownfi.io/assets/coins/sei.svg",
-	},
-	uusdc: {
-		name: "USD Coin",
-		symbol: "USDC",
-		decimals: 6,
-		icon: "https://app.crownfi.io/assets/coins/usdc.svg",
-	},
-	"factory/sei1ug2zf426lyucgwr7nuneqr0cymc0fxx2qjkhd8/test-ln4z7ryp": {
-		name: "CrownFi Native Test Token 1",
-		symbol: "TESTN1",
-		decimals: 6,
-		icon: "https://app.crownfi.io/assets/placeholder.svg",
-	},
-	"cw20/sei17k6s089jcg3d02ny2h3a3z675307a9j8dvrslsrku6rkawe5q73q9sygav": {
-		name: "CrownFi CW20 Test Token 1",
-		symbol: "TESTC1",
-		decimals: 6,
-		icon: "https://app.crownfi.io/assets/placeholder.svg",
+		icon: "https://www.crownfi.io/assets/coins/sei.svg",
+		base: "usei"
 	},
 };
+*/
+
+const userTokenInfoAliases: { [network:string]: { [denom: string]: string } } = {};
+const userTokenInfo: { [network:string]: { [denom: string]: UserTokenInfo } } = {};
 
 export type UserTokenInfo = {
 	name: string;
 	symbol: string;
 	decimals: number;
 	icon: string;
+	base: string;
 };
+export type PartialUserTokenInfo = {
+	name?: string;
+	symbol?: string;
+	decimals?: number;
+	icon?: string;
+	base: string;
+};
+
+export function matchTokenType<T>(
+	unifiedDenom: UnifiedDenom,
+	ifCW20Callback: (contractAddress: string) => T,
+	ifERC20Callback: (contractAddress: string) => T,
+	ifNativeCallback: (denom: string) => T
+): T {
+	if (unifiedDenom.startsWith("cw20/")) {
+		return ifCW20Callback(unifiedDenom.substring(5)); // "cw20/".length
+	} else if (unifiedDenom.startsWith("erc20/")) {
+		return ifERC20Callback(unifiedDenom.substring(6)); // "erc20/".length
+	} else {
+		return ifNativeCallback(unifiedDenom);
+	}
+}
+
+let centralAssetListInfoPromise: Promise<void> | null = null;
+
+/**
+ * Sets the specified token info which can later be retrieved via `getUserTokenInfo`
+ * 
+ * If any fields are unspecified, they will be searched for from the following in order of priority:
+ * * The "Sei-Public-Goods" centralized asset list
+ * * Metadata returned from the contract (if it's a contract token)
+ * * the `denoms_metadata` Sei query (if it's a native token)
+ * 
+ * @param queryClient 
+ * @param baseOrPartialTokenInfo 
+ */
+export async function addUserTokenInfo(
+	queryClient: QueryClient & WasmExtension & SeiEvmExtension & BankExtension,
+	network: string,
+	baseOrPartialTokenInfo: string | PartialUserTokenInfo
+) {
+	if (centralAssetListInfoPromise == null) {
+		centralAssetListInfoPromise = (async () => {
+			try {
+				const assetList = await (
+					await fetch("https://www.crownfi.io/external/asset_list.json")
+				).json() as {[network: string]: ExternalAssetListItem[]};
+				for (const network in assetList) {
+					for (let i = 0; i < assetList[network].length; i += 1) {
+						const assetListItem = assetList[network][i];
+						const base = (() => {
+							switch (assetListItem.type_asset) {
+								case "sdk.coin":
+									return assetListItem.base;
+								case "cw20":
+									return "cw20/" + assetListItem.base;
+								case "erc20":
+									return "erc20/" + assetListItem.base;
+								default:
+									console.warn(
+										"@crownfi/sei-utils: Central asset list contains unknown type_asset:",
+										assetListItem.type_asset
+									);
+									return "";
+							}
+						})();
+						if (!base) {
+							continue;
+						}
+						userTokenInfo[network][base] = {
+							base,
+							name: assetListItem.name,
+							symbol: assetListItem.symbol,
+							decimals: assetListItem.denom_units.find(
+								unit => unit.denom == assetListItem.display
+							)?.exponent || 0,
+							icon: assetListItem.images.svg ? assetListItem.images.svg : (
+								assetListItem.images.png ? assetListItem.images.png : (
+									Object.values(assetListItem.images)[0] ||
+										"https://www.crownfi.io/assets/placeholder.svg"
+								)
+							)
+						};
+					}
+				}
+			}catch(ex: any) {
+				// Allow for retries later
+				console.error("Failed to get central asset list:", ex);
+				centralAssetListInfoPromise = null;
+				throw ex;
+			}
+		})();
+	}
+	await centralAssetListInfoPromise;
+	const unifiedDenom = typeof baseOrPartialTokenInfo == "object" ?
+		baseOrPartialTokenInfo.base : baseOrPartialTokenInfo;
+	const providedInfo: PartialUserTokenInfo = typeof baseOrPartialTokenInfo == "object" ?
+		baseOrPartialTokenInfo : {base: baseOrPartialTokenInfo};
+	
+	if (userTokenInfo[network][unifiedDenom]) {
+		if (providedInfo.decimals) {
+			userTokenInfo[network][unifiedDenom].decimals = providedInfo.decimals;
+		}
+		if (providedInfo.icon) {
+			userTokenInfo[network][unifiedDenom].icon = providedInfo.icon;
+		}
+		if (providedInfo.name) {
+			userTokenInfo[network][unifiedDenom].name = providedInfo.name;
+		}
+		if (providedInfo.symbol) {
+			userTokenInfo[network][unifiedDenom].symbol = providedInfo.symbol;
+		}
+		return;
+	}
+	
+	await matchTokenType(
+		unifiedDenom,
+		async (wasmAddress) => {
+			if (!providedInfo.name || !providedInfo.symbol || !providedInfo.decimals) {
+				const {
+					name,
+					symbol,
+					decimals
+				} = await queryClient.wasm.queryContractSmart(
+					wasmAddress,
+					{token_info: {}} /* satisfies Cw20QueryMsg */
+				); /* as Cw20TokenInfoResponse*/
+				if (!providedInfo.name) {
+					providedInfo.name = name + "";
+				}
+				if (!providedInfo.symbol) {
+					providedInfo.symbol = symbol + "";
+				}
+				if (!providedInfo.decimals) {
+					providedInfo.decimals = Number(decimals) || 0;
+				}
+			}
+			if (!providedInfo.icon) {
+				const {
+					logo
+				} = await queryClient.wasm.queryContractSmart(
+					wasmAddress,
+					{marketing_info: {}} /* satisfies Cw20QueryMsg */
+				); /* as Cw20MarketingInfoResponse*/
+				if (logo && "url" in logo) {
+					providedInfo.icon = logo.url;
+				} else {
+					try {
+						const {
+							mime_type,
+							data: img_data
+						} = await queryClient.wasm.queryContractSmart(
+							wasmAddress,
+							{download_logo: {}} /* satisfies Cw20QueryMsg */
+						); /* as Cw20DownloadLogoResponse*/
+						providedInfo.icon = "data:" + mime_type + ";base64," + img_data;
+					} catch (ex: any) {
+						console.warn("Could not download icon for " + unifiedDenom + ":", ex);
+					}
+				}
+			}
+		},
+		async (evmAddress) => {
+			const [
+				[name],
+				[symbol],
+				[decimals]
+			] = await Promise.all([
+				queryEvmContract(queryClient, evmAddress, ERC20_FUNC_NAME, []),
+				queryEvmContract(queryClient, evmAddress, ERC20_FUNC_SYMBOL, []),
+				queryEvmContract(queryClient, evmAddress, ERC20_FUNC_DECIMALS, [])
+			]);
+			if (!providedInfo.name) {
+				providedInfo.name = name + "";
+			}
+			if (!providedInfo.symbol) {
+				providedInfo.symbol = symbol + "";
+			}
+			if (!providedInfo.decimals) {
+				providedInfo.decimals = Number(decimals) || 0;
+			}
+		},
+		async (denom) => {
+			const metadata = await queryClient.bank.denomMetadata(denom);
+			providedInfo.base = metadata.base;
+			if (!providedInfo.name) {
+				providedInfo.name = metadata.name;
+			}
+			if (!providedInfo.symbol) {
+				providedInfo.symbol = metadata.symbol;
+			}
+			if (!providedInfo.decimals) {
+				providedInfo.decimals = metadata.denomUnits.find(
+					unit => unit.denom == metadata.display
+				)?.exponent || 0;
+			}
+			if (!providedInfo.icon) {
+				let iconMatch = metadata.description.match(/\[logo_uri\]\((.+?)\)/);
+				if (iconMatch != null) {
+					providedInfo.icon = iconMatch[1];
+				} else {
+					iconMatch = metadata.description.match(/\[ipfs_cid\]\(([a-zA-Z0-9]+?)\)/);
+					if (iconMatch != null) {
+						providedInfo.icon = "https://ipfs.io/ipfs/" + iconMatch[1];
+					}
+				}
+			}
+		}
+	)
+	if (!providedInfo.icon) {
+		if (/(\/|%2f)/i.test(providedInfo.symbol!)) {
+			const fallbackIcon = "https://www.crownfi.io/assets/coins/" + providedInfo.symbol!.toLowerCase() + ".svg";
+			const contentType = (await fetch(fallbackIcon, {method: "HEAD"})).headers.get("content-type") + "";
+			if (contentType.startsWith("image/")) {
+				providedInfo.icon = fallbackIcon;
+			} else {
+				providedInfo.icon = "https://www.crownfi.io/assets/placeholder.svg";
+			}
+		} else {
+			providedInfo.icon = "https://www.crownfi.io/assets/placeholder.svg";
+		}
+	}
+	userTokenInfo[network][providedInfo.base] = providedInfo as UserTokenInfo;
+}
 
 /**
  * Returns the user token info for the given denom. If there is none, fake data is returned.
  */
-export function getUserTokenInfo(unifiedDenom: string): UserTokenInfo {
+export function getUserTokenInfo(
+	unifiedDenom: string,
+	network: SeiChainId = getDefaultNetworkConfig().chainId
+): UserTokenInfo {
 	return (
-		userTokenInfo[unifiedDenom] ?? {
+		userTokenInfo[network][unifiedDenom] ?? {
 			name: "Unknown token (" + unifiedDenom + ")",
 			symbol: "(" + unifiedDenom + ")",
 			decimals: 0,
-			icon: "https://app.crownfi.io/assets/placeholder.svg",
+			icon: "https://www.crownfi.io/assets/placeholder.svg",
+			base: unifiedDenom
 		}
 	);
 }
 
+export function addUserTokenInfoAliases(
+	aliasAsset: string,
+	realAsset: string,
+	network: SeiChainId = getDefaultNetworkConfig().chainId
+) {
+	userTokenInfoAliases[network][aliasAsset] = realAsset;
+}
+
+export function hasUserTokenInfo(
+	unifiedDenom: string,
+	network: SeiChainId = getDefaultNetworkConfig().chainId
+): boolean {
+	return userTokenInfo[network][unifiedDenom] != null;
+}
+
 /**
- * Updates the data returned by getUserTokenInfo
- * @param network The sei network to use, defaults to `getDefaultNetworkConfig().chainId`
- * @param apiEndpoint API Endpoint to get the coin data from, defaults to crownfi
- * @returns
+ * @deprecated Does nothing
  */
 export function updateUserTokenInfo(
 	network: SeiChainId = getDefaultNetworkConfig().chainId,
 	apiEndpoint?: string
 ): Promise<void> {
-	// Noop until our API is up and running
 	return Promise.resolve();
 }
 

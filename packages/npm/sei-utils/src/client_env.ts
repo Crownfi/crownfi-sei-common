@@ -23,13 +23,13 @@ import { CometClient } from "@cosmjs/tendermint-rpc";
 import { EthereumProvider, ReceiptInformation, Transaction as EvmTransaction } from "@crownfi/ethereum-rpc-types";
 import { Secp256k1, ExtendedSecp256k1Signature } from '@cosmjs/crypto'; // Heavy import but it's already imported elsewhere
 
-import { nativeDenomSortCompare } from "./funds_util.js";
+import { nativeDenomSortCompare, UnifiedDenom } from "./funds_util.js";
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx.js";
 import { Addr } from "./common_sei_types.js";
 import { getEvmAddressFromPubkey, toChecksumAddressEvm } from "./evm-interop-utils/address.js";
 import { ClientAccountMissingError, ClientNotSignableError, ClientPubkeyUnknownError, EvmAddressValidationMismatchError } from "./error.js";
 import { EVMABIFunctionDefinition, functionSignatureToABIDefinition } from "./evm-interop-utils/abi/common.js";
-import { addSeiClientAccountDataToCache, cosmosMessagesToEvmMessages, encodeEvmFuncCall, getSeiClientAccountDataFromNetwork } from "./evm-interop-utils/index.js";
+import { addSeiClientAccountDataToCache, cosmosMessagesToEvmMessages, encodeEvmFuncCall, getSeiClientAccountDataFromNetwork, queryEvmContract, queryEvmContractForObject } from "./evm-interop-utils/index.js";
 import { decodeEvmOutputAsArray, decodeEvmOutputAsStruct } from "./evm-interop-utils/abi/decode.js";
 import { ERC20_FUNC_BALANCE_OF, ERC20_FUNC_TOTAL_SUPPLY } from "./evm-interop-utils/erc20.js";
 import { EvmOrWasmExecuteInstruction } from "./contract_base.js";
@@ -859,35 +859,21 @@ export class ClientEnv {
 	async queryContract(contractAddress: string, query: object): Promise<any> {
 		return await this.queryClient.wasm.queryContractSmart(contractAddress, query);
 	}
-	async queryEvmContract(
+	queryEvmContract(
 		contractAddress: string,
 		functionDefinition: EVMABIFunctionDefinition | string,
 		params: any[]
 	): Promise<any[]> {
-		if (typeof functionDefinition == "string") {
-			functionDefinition = functionSignatureToABIDefinition(functionDefinition);
-		}
-		const result = await this.queryClient.evm.staticCall({
-			data: encodeEvmFuncCall(functionDefinition, params),
-			to: contractAddress
-		});
-		return decodeEvmOutputAsArray(Buffer.from(result.data), functionDefinition.outputs);
+		return queryEvmContract(this.queryClient, contractAddress, functionDefinition, params);
 	}
 	async queryEvmContractForObject(
 		contractAddress: string,
 		functionDefinition: EVMABIFunctionDefinition | string,
 		params: any[]
 	): Promise<any> {
-		if (typeof functionDefinition == "string") {
-			functionDefinition = functionSignatureToABIDefinition(functionDefinition);
-		}
-		const result = await this.queryClient.evm.staticCall({
-			data: encodeEvmFuncCall(functionDefinition, params),
-			to: contractAddress
-		});
-		return decodeEvmOutputAsStruct(Buffer.from(result.data), functionDefinition.outputs);
+		return queryEvmContractForObject(this.queryClient, contractAddress, functionDefinition, params);
 	}
-	async getBalance(unifiedDenom: string, accountAddress?: string): Promise<bigint> {
+	async getBalance(unifiedDenom: UnifiedDenom, accountAddress?: string): Promise<bigint> {
 		if (unifiedDenom.startsWith("erc20/")) {
 			if (!accountAddress) {
 				accountAddress = this.getAccount().evmAddress;
@@ -993,7 +979,7 @@ export class ClientEnv {
 		}
 		return result;
 	}
-	async getSupplyOf(unifiedDenom: string): Promise<bigint> {
+	async getSupplyOf(unifiedDenom: UnifiedDenom): Promise<bigint> {
 		if (unifiedDenom.startsWith("cw20/")) {
 			// TODO: Add return types for cw20
 			const { total_supply } = await this.queryContract(
