@@ -55,11 +55,19 @@ window.addEventListener("hashchange", (_) => {
 });
 let currentClientAccountData: SeiClientAccountData | null = null;
 
+/**
+ * A wallet options button, represented as `<button is="wallet-options">` in the document.
+ * 
+ * This button sets {@link ClientEnv} and {@link WebClientEnv}'s default provider to that which the user specified.
+ * 
+ * May have a `"default-network"`, which is referenced on initial page load. However, if the URL specifies the network,
+ * that will be used instead.
+ */
 export class WalletOptionsButtonElement extends WalletOptionsAutogen {
 	static get observedAttributes() {
 		return ["default-network"];
 	}
-	attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null) {
+	attributeChangedCallback(name: string, _: string | null, newValue: string | null) {
 		switch(name) {
 			case "default-network": {
 				if (window.location.hash.startsWith("#?")) {
@@ -129,6 +137,9 @@ export class WalletOptionsButtonElement extends WalletOptionsAutogen {
 		setNetworkFromUrlHash();
 		this.updateProvider(ClientEnv.getDefaultProvider(), currentClientAccountData);
 	}
+	/**
+	 * @internal 
+	 */
 	updateProvider(provider: MaybeSelectedProviderString, accountData: SeiClientAccountData | null) {
 		this.#notConnected = accountData == null;
 		if (accountData == null) {
@@ -158,6 +169,13 @@ export class WalletOptionsButtonElement extends WalletOptionsAutogen {
 		}
 	}
 }
+WalletOptionsButtonElement.registerElement();
+
+/**
+ * A wallet options button, represented as `<button is="wallet-disconnect">` in the document.
+ * 
+ * Clicking the button calls {@link ClientEnv.nullifyDefaultProvider}. That's it.
+ */
 export class WalletDisconnectButtonElement extends HTMLButtonElement {
 	constructor() {
 		super();
@@ -186,7 +204,6 @@ seiUtilEventEmitter.on("defaultNetworkChanged", (ev) => {
 		);
 	}
 });
-WalletOptionsButtonElement.registerElement();
 
 seiUtilEventEmitter.on("defaultProviderChanged", (ev) => {
 	currentClientAccountData = ev.account;
@@ -203,7 +220,9 @@ seiUtilEventEmitter.on("defaultProviderChanged", (ev) => {
 	});
 });
 
-
+/**
+ * Wallet option, automatically created by the {@link WalletModalElement}
+ */
 export class WalletChoiceElement extends WalletChoiceAutogen {
 	constructor(){
 		super();
@@ -213,7 +232,7 @@ export class WalletChoiceElement extends WalletChoiceAutogen {
 		});
 	}
 	protected onIconChanged(_: string | null, newValue: string | null) {
-		this.refs.img.src = newValue || "https://app.crownfi.io/assets/placeholder.svg";
+		this.refs.img.src = newValue || "https://www.crownfi.io/assets/placeholder.svg";
 	}
 	protected onTextChanged(_: string | null, newValue: string | null) {
 		this.refs.text.innerText = newValue + "";
@@ -222,6 +241,10 @@ export class WalletChoiceElement extends WalletChoiceAutogen {
 }
 WalletChoiceElement.registerElement();
 
+/**
+ * Wallet chooser, represented as `<dialog is="wallet-modal">` in the document. Usually this is created by the
+ * {@link WalletOptionsButtonElement}
+ */
 export class WalletModalElement extends WalletModalAutogen {
 	static showModal() {
 		const dialog = q("dialog[is=wallet-modal]") as WalletModalElement | null;
@@ -276,6 +299,7 @@ export class WalletModalElement extends WalletModalAutogen {
 			} finally {
 				loadingTask.hide();
 			}
+			return;
 		}
 		if (choice == "seed-wallet") {
 			const walletStuffs = await SeedPhraseModalElement.showModalAndGetValues();
@@ -384,6 +408,10 @@ export class WalletModalElement extends WalletModalAutogen {
 }
 WalletModalElement.registerElement();
 
+/**
+ * Allows the user to enter a mnemonic seed, represented as `<dialog is="seed-phrase-modal">` in the document.
+ * Usually this is created by the {@link WalletOptionsButtonElement}
+ */
 class SeedPhraseModalElement extends SeedPhraseModalAutogen {
 	static showModalAndGetValues(): Promise<{ seed: string; index: number, cointype: number } | null> {
 		const dialog = q("dialog[is=seed-phrase-modal]") as SeedPhraseModalElement | null;

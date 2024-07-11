@@ -19,6 +19,14 @@ export const EVM_BANK_SEND_SEI = functionSignatureToABIDefinition("sendNative(st
 
 // Submit a PR if you want more types, this is all we need for now.
 
+/**
+ * Converts a cosmos message into an EVM message using the corresponding EVM precompile contract addresses.
+ * 
+ * @param queryClient the query client to use, 
+ * @param msgs 
+ * @param senderEvmAddress 
+ * @returns 
+ */
 export async function cosmosMessagesToEvmMessages(
 	queryClient: SeiQueryClient,
 	msgs: EncodeObject[],

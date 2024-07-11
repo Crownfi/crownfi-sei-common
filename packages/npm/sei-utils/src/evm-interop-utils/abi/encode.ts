@@ -4,6 +4,7 @@ import { isValidEvmAddress } from "../address.js";
 const GURAD_BYTES = Buffer.from("fefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe", "hex");
 import { keccak256 } from "keccak-wasm";
 import { EVMABIFunctionDefinition, EVMABITupleComponent, NULL_BYTES, ONE_BYTE, UINT256_MAX, UINT256_SIZE, encodedArrayType, functionSignatureToABIDefinition, normalizeTupleComponent, tupleComponentsTypeSignature } from "./common.js";
+import { ABIDefType } from "./evm_type_map.js";
 
 // Encoding functions
 const encodeBoolean = function(bool: any): Buffer {
@@ -392,11 +393,17 @@ class EvmPayloadEncoder {
 	
 }
 
+/**
+ * Encodes a single solidity value, can be a primitive, array, or a tuple.
+ * @param value the actual value to encode
+ * @param evmType the solidity type you wish to encode this as
+ * @returns the encoded value
+ */
 export function encodeEvmType(value: any, evmType: string | EVMABITupleComponent): Buffer {
 	if (typeof evmType == "string") {
 		evmType = normalizeTupleComponent({
 			name: "",
-			type: evmType
+			type: evmType as ABIDefType
 		});
 	}
 	const encoder = new EvmPayloadEncoder();
@@ -404,6 +411,13 @@ export function encodeEvmType(value: any, evmType: string | EVMABITupleComponent
 	return encoder.payload();
 }
 
+/**
+ * Encodes the specified solidity function call its parameters.
+ * 
+ * @param funcDefinition either a snippet of the JSON ABI, or a function signature like `"myFunc(uint256, uint256)"`.
+ * @param parameters the parameters to encode
+ * @returns the encoded payload
+ */
 export function encodeEvmFuncCall(funcDefinition: EVMABIFunctionDefinition | string, parameters: any[]): Buffer {
 	if (typeof funcDefinition == "string") {
 		funcDefinition = functionSignatureToABIDefinition(funcDefinition);

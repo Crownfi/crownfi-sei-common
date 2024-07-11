@@ -6,7 +6,15 @@ import { ReceiptInformation as EvmReceiptInformation, Transaction as EvmTransact
 import { ClientEnv, ClientNotSignableError, EvmOrWasmExecuteInstruction, SeiChainId, TransactionFinality, transactionSucceeded } from "@crownfi/sei-utils";
 const DEFAULT_TX_TIMEOUT_MS = 60000;
 
-
+/**
+ * Generates a "transaction confirmed" popup box based on the transaction and chain ID provided.
+ * 
+ * This warns the user if the transaction was confirmed but resulted in an error.
+ * 
+ * Currently this links to seitrace.
+ * @param tx the transaction to draw from
+ * @param chainId the sei network ID, needed to properly link to the correct transaction
+ */
 export async function txConfirmMsgBox(tx: EvmReceiptInformation | DeliverTxResponse, chainId: SeiChainId) {
 	const txLink = document.createElement("p");
 	txLink.innerHTML = `<a href="https://seitrace.com/tx/${
@@ -35,6 +43,18 @@ export async function txConfirmMsgBox(tx: EvmReceiptInformation | DeliverTxRespo
 		);
 	}
 }
+/**
+ * Generates a "transaction confirmed" popup box based on the transactions and chain ID provided.
+ * 
+ * This warns the user if one of the transactions was confirmed but resulted in an error.
+ * 
+ * Currently this links to seitrace.
+ * 
+ * @param txs the transactions to draw from
+ * @param chainId the sei network ID, needed to properly link to the correct transactions
+ * @param expectedLength The expected length of `txs`, used to warn the user that transactions have been cancelled.
+ * @returns 
+ */
 export async function txsConfirmMsgBox(
 	txs: (EvmReceiptInformation | DeliverTxResponse)[],
 	chainId: SeiChainId,
@@ -102,6 +122,11 @@ export async function txsConfirmMsgBox(
 	}
 }
 
+/**
+ * A `ClientEnv` which displays a loading spinner when transactions are waiting to be approved and/or confirmed.
+ * 
+ * This can be created using `WebClientEnv.get()`
+ */
 export class WebClientEnv extends ClientEnv {
 	signAndSend(msgs: EncodeObject[]): Promise<DeliverTxResponse>;
 	signAndSend(msgs: EncodeObject[], memo?: string): Promise<DeliverTxResponse>;
@@ -219,6 +244,13 @@ export class WebClientEnv extends ClientEnv {
 			task.hide();
 		}
 	}
+	/**
+	 * Processes multiple transactions in sequence
+	 * @param sequence transactions to process
+	 * @param ignoreFailures whether or not to abort if a transaction failed
+	 * @param noConfirmMsgBox set to `true` if you don't want a dialog box after the sequence is processed
+	 * @returns the resulting transaction receipts
+	 */
 	async processHackyTransactionSequence(
 		sequence: ({evmMsg: EvmTransaction} | {cosmMsg: EncodeObject[]})[],
 		ignoreFailures?: boolean,
@@ -284,7 +316,7 @@ export class WebClientEnv extends ClientEnv {
 	 * EVM signatures.
 	 * 
 	 * @param instructions 
-	 * @returns 
+	 * @returns the resulting transaction receipts
 	 */
 	async executeContractHackySequence(
 		instructions: EvmOrWasmExecuteInstruction[]

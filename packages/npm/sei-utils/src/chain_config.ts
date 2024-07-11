@@ -86,6 +86,11 @@ export function setDefaultNetwork(network: SeiChainId) {
 	}
 }
 
+/**
+ * Gets the specified network config
+ * @param network chain id
+ * @returns 
+ */
 export function getNetworkConfig<C extends SeiChainId>(network: C): SeiChainNetConfig<C> | null {
 	const result = seiNetConfigs[network];
 	if (result == null) {
@@ -94,6 +99,9 @@ export function getNetworkConfig<C extends SeiChainId>(network: C): SeiChainNetC
 	return result as SeiChainNetConfig<C>;
 }
 
+/**
+ * @returns the config of the network previously specified by {@link setDefaultNetwork}
+ */
 export function getDefaultNetworkConfig(): SeiChainNetConfig {
 	// This should never be undefined since setDefaultNetwork checks the default network
 	return {...seiNetConfigs[defaultNetwork]};

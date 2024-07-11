@@ -23,7 +23,7 @@ import { CometClient } from "@cosmjs/tendermint-rpc";
 import { EthereumProvider, ReceiptInformation, Transaction as EvmTransaction } from "@crownfi/ethereum-rpc-types";
 import { Secp256k1, ExtendedSecp256k1Signature } from '@cosmjs/crypto'; // Heavy import but it's already imported elsewhere
 
-import { nativeDenomSortCompare, UnifiedDenom } from "./funds_util.js";
+import { nativeDenomSortCompare, UIAmount, UnifiedDenom } from "./funds_util.js";
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx.js";
 import { Addr } from "./common_sei_types.js";
 import { getEvmAddressFromPubkey, toChecksumAddressEvm } from "./evm-interop-utils/address.js";
@@ -35,19 +35,39 @@ import { ERC20_FUNC_BALANCE_OF, ERC20_FUNC_TOTAL_SUPPLY } from "./evm-interop-ut
 import { EvmOrWasmExecuteInstruction } from "./contract_base.js";
 import { keccak256 } from "keccak-wasm";
 
-// type SeiQueryClient = Awaited<ReturnType<typeof getQueryClient>>;
-
+/**
+ * The account data used by the `ClientEnv` with a wallet.
+ */
 export interface SeiClientAccountData {
+	/**
+	 * The user's `sei1...` address.
+	 */
 	readonly seiAddress: string;
+	/**
+	 * The user's `0x...` address.
+	 */
 	readonly evmAddress: string;
+	/**
+	 * The user's public key used to derive both addresses. May be undefined if this is a read-only account.
+	 */
 	readonly pubkey?: Uint8Array;
 }
 
+/**
+ * The string representation of the selected wallet provider
+ */
 export type MaybeSelectedProviderString = KnownSeiProviders |
 	"ethereum" |
 	"seed-wallet" |
 	"read-only-address" |
 	null;
+
+/**
+ * Which wallet provider to use.
+ * * `ethereum`: use window-ethereum
+ * * `{seed: "...", ...}`: recover a wallet with a mnemonic seed
+ * * `{address: "..."}`: a read-only account
+ */
 export type MaybeSelectedProvider = KnownSeiProviders |
 	"ethereum" |
 	{ seed: string; index?: number, cointype?: number } |
@@ -71,6 +91,9 @@ function maybeProviderToMaybeString(provider: MaybeSelectedProvider): MaybeSelec
  * the transaction has been sent and processed. With an optional timeout time, which usually defaults to 60 seconds.
  */
 export type TransactionFinality = "broadcasted" | { confirmed: { timeoutMs?: number } };
+/**
+ * The result of a simulated cosmos transaction
+ */
 export type SimulateResponse = Awaited<ReturnType<SeiQueryClient["tx"]["simulate"]>>;
 interface ClientEnvConstruct {
 	account: SeiClientAccountData | null;
@@ -85,18 +108,43 @@ interface ClientEnvConstruct {
 }
 let defaultProvider: MaybeSelectedProvider = null;
 let defaultGasPrice = GasPrice.fromString("0.1usei");
+/**
+ * The main class used to interact with the Sei network, optionally associated with a wallet.
+ * 
+ * This provides various abstractions for interacting with different assets usable on Sei, along with the ability to
+ * interact with both EVM and WASM contracts.
+ */
 export class ClientEnv {
 	protected signer: OfflineSigner | null;
 	protected cometClient: CometClient;
+	/** User's account data. Will be `null` if this isn't associated with an account */
 	readonly account: SeiClientAccountData | null;
+	/** The Sei network ID this client is connected to */
 	readonly chainId: SeiChainId;
+	/** If this is a read-only account, this says why. */
 	readonly readonlyReason: string;
-
+	/**
+	 * A `SigningStargateClient` if this `ClientEnv` is used with an account which can sign transactions, or a
+	 * `StargateClient` otherwise. Used for general network information and optionally signing things.
+	 */
 	readonly stargateClient: SigningStargateClient | StargateClient;
+	/**
+	 * The underlying query client, used to query the specific modules on Sei.
+	 */
 	readonly queryClient: SeiQueryClient;
+	/**
+	 * The `stargateClient` needs this to encode things properly.
+	 */
 	readonly cosmRegistry: Registry;
+	/**
+	 * If an ethereum wallet is connected, it will be exposed here.
+	 */
 	readonly ethereumClient: EthereumProvider | null;
 
+	/**
+	 * Returns the current default provider
+	 * @returns The default provider
+	 */
 	static getDefaultProvider(): MaybeSelectedProviderString {
 		return maybeProviderToMaybeString(defaultProvider);
 	}
@@ -135,6 +183,11 @@ export class ClientEnv {
 	static getDefaultGasPrice(): GasPrice {
 		return defaultGasPrice;
 	}
+	/**
+	 * Sets the specified provider as the default one when {@link ClientEnv.get} is called.
+	 * @param provider the provider to use.
+	 * @param dontThrowOnFail if false, this will throw an error on failure
+	 */
 	static async setDefaultProvider(provider: MaybeSelectedProvider, dontThrowOnFail: boolean = false) {
 		const chainId = getDefaultNetworkConfig().chainId;
 		const oldProvider = defaultProvider;
@@ -364,6 +417,16 @@ export class ClientEnv {
 		}
 	}
 
+	/**
+	 * Don't be afraid of the type definition, just use `ClientEnv.get()`
+	 * 
+	 * This gets a `ClientEnv` from the provider specified.
+	 * 
+	 * @param provider The provider to use
+	 * @param chainId The network ID to connect to
+	 * @param gasPrice gas price
+	 * @returns 
+	 */
 	static async get<T extends typeof ClientEnv>(
 		this: T,
 		provider: MaybeSelectedProvider = defaultProvider,
@@ -512,6 +575,9 @@ export class ClientEnv {
 		return this.signer != null && this.stargateClient instanceof SigningStargateClient && this.account != null;
 	}
 
+	/**
+	 * @returns true if cosmos tranasction signing and ethereum transaction signing is available
+	 */
 	isSignableAndEthereum(): this is {
 		ethereumClient: EthereumProvider,
 		signer: OfflineSigner,
@@ -521,10 +587,16 @@ export class ClientEnv {
 		return this.ethereumClient != null && this.isSignable();	
 	}
 
+	/**
+	 * @returns true if ethereum transaction signing is available
+	 */
 	hasEthereum(): this is {ethereumClient: EthereumProvider} {
 		return this.ethereumClient != null;
 	}
 
+	/**
+	 * @returns true if ethereum transaction signing is available, and cosmos tranasction signing is **not** available
+	 */
 	isEthereumOnly(): this is {
 		ethereumClient: EthereumProvider,
 		signer: null,
@@ -543,7 +615,7 @@ export class ClientEnv {
 	}
 
 	/**
-	 *
+	 * Waits for the specified EVM transaction hash to confirm
 	 * @param tx the transcation hash
 	 * @param timeoutMs how long to wait until timing out. Defaults to 60 seconds
 	 * @param throwOnTimeout whether or not to throw an error if the timeout time has elapsed instead of returning null
@@ -551,7 +623,7 @@ export class ClientEnv {
 	 */
 	async waitForEvmTxConfirm(tx: string, timeoutMs?: number, throwOnTimeout?: boolean): Promise<ReceiptInformation | null>;
 	/**
-	 *
+	 * Waits for the specified EVM transaction hash to confirm
 	 * @param tx the transcation hash
 	 * @param timeoutMs how long to wait until timing out. Defaults to 60 seconds if undefined
 	 * @param throwOnTimeout you explicitly set this to `true`, so prepare for error throwing
@@ -593,7 +665,7 @@ export class ClientEnv {
 	}
 
 	/**
-	 *
+	 * Waits for the specified cosmos transaction to confirm
 	 * @param tx the transcation hash
 	 * @param timeoutMs how long to wait until timing out. Defaults to 60 seconds
 	 * @param throwOnTimeout whether or not to throw an error if the timeout time has elapsed instead of returning null
@@ -601,7 +673,7 @@ export class ClientEnv {
 	 */
 	async waitForTxConfirm(tx: string, timeoutMs?: number, throwOnTimeout?: boolean): Promise<DeliverTxResponse | null>;
 	/**
-	 *
+	 * Waits for the specified cosmos transaction to confirm
 	 * @param tx the transcation hash
 	 * @param timeoutMs how long to wait until timing out. Defaults to 60 seconds if undefined
 	 * @param throwOnTimeout you explicitly set this to `true`, so prepare for error throwing
@@ -819,8 +891,6 @@ export class ClientEnv {
 	}
 	/**
 	 * Simulates the transaction and provides actually useful information. Like the events emitted.
-	 *
-	 * Because cosmjs says: "Why would anyone want any information other than estimated gas from a simulation?"
 	 */
 	async simulateTransaction(messages: readonly EncodeObject[]): Promise<SimulateResponse> {
 		if (!this.hasAccount()) {
@@ -859,6 +929,13 @@ export class ClientEnv {
 	async queryContract(contractAddress: string, query: object): Promise<any> {
 		return await this.queryClient.wasm.queryContractSmart(contractAddress, query);
 	}
+	/**
+	 * Makes a read-only call to a solidity contract
+	 * @param contractAddress The `0x...` contract address
+	 * @param functionDefinition Function to call with its return types
+	 * @param params Function arguments
+	 * @returns the returned values as an array
+	 */
 	queryEvmContract(
 		contractAddress: string,
 		functionDefinition: EVMABIFunctionDefinition | string,
@@ -866,6 +943,13 @@ export class ClientEnv {
 	): Promise<any[]> {
 		return queryEvmContract(this.queryClient, contractAddress, functionDefinition, params);
 	}
+	/**
+	 * Makes a read-only call to a solidity contract
+	 * @param contractAddress The `0x...` contract address
+	 * @param functionDefinition Function to call with its return types
+	 * @param params Function arguments
+	 * @returns the returned values as a struct
+	 */
 	async queryEvmContractForObject(
 		contractAddress: string,
 		functionDefinition: EVMABIFunctionDefinition | string,
@@ -873,6 +957,14 @@ export class ClientEnv {
 	): Promise<any> {
 		return queryEvmContractForObject(this.queryClient, contractAddress, functionDefinition, params);
 	}
+	/**
+	 * Gets the balance of the specified fungible asset
+	 * 
+	 * @param unifiedDenom the fungible to get the balance of
+	 * @param accountAddress account address, can be a `0x` or `sei1` address (if they're associated) defaults to this
+	 * user's `0x` or `sei1` address depending on whether which asset is specified.
+	 * @returns the raw value. If you wish to make it look pretty, use it with {@link UIAmount}.
+	 */
 	async getBalance(unifiedDenom: UnifiedDenom, accountAddress?: string): Promise<bigint> {
 		if (unifiedDenom.startsWith("erc20/")) {
 			if (!accountAddress) {
@@ -915,9 +1007,27 @@ export class ClientEnv {
 			)[0];
 		} else {
 			const result = await this.queryClient.bank.balance(accountAddress, unifiedDenom);
+			// Quick hack to deal with user accounts not associated yet.
+			if (
+				result.denom == "usei" &&
+				accountAddress == this.account?.seiAddress &&
+				this.hasEthereum() &&
+				!(await this.isAssociated())
+			) {
+				return BigInt(result.amount) + (
+					BigInt(await this.ethereumClient.request(
+						{method: "eth_getBalance", params: [this.account.evmAddress, "latest"]}
+					)) / 1000000000000n
+				);
+			}
 			return BigInt(result.amount);
 		}
 	}
+	/**
+	 * Encodes the specified contract instructions into an array of cosmos messages
+	 * @param instructions contract instructions to encode
+	 * @returns 
+	 */
 	execIxsToCosmosMsgs(instructions: EvmOrWasmExecuteInstruction[]): EncodeObject[] {
 		if (!this.hasAccount()) {
 			throw new ClientAccountMissingError("Can't get user wallet address - " + this.readonlyReason);
@@ -943,15 +1053,18 @@ export class ClientEnv {
 			}
 			return {
 				typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-				value: MsgExecuteContract.fromPartial({
+				value: {
 					sender: this.account.seiAddress,
 					contract: i.contractAddress,
 					msg: i.msg instanceof Uint8Array ? i.msg : Buffer.from(JSON.stringify(i.msg)),
-					funds: [...(i.funds || [])],
-				}),
+					funds: [...(i.funds || [])]
+				},
 			};
 		});
 	}
+	/**
+	 * Sei currently doesn't expose its EVM call message type on the top level, so this... helps you account for that.
+	 */
 	async makeHackyTransactionSequenceAsNeeded(
 		msgs: EncodeObject[]
 	): Promise<({evmMsg: EvmTransaction} | {cosmMsg: EncodeObject[]})[]> {
@@ -979,6 +1092,11 @@ export class ClientEnv {
 		}
 		return result;
 	}
+	/**
+	 * Gets the total supply of the specified fungible asset.
+	 * @param unifiedDenom the asset to look up
+	 * @returns the raw value. If you wish to make it look pretty, use it with {@link UIAmount}.
+	 */
 	async getSupplyOf(unifiedDenom: UnifiedDenom): Promise<bigint> {
 		if (unifiedDenom.startsWith("cw20/")) {
 			// TODO: Add return types for cw20
@@ -1001,6 +1119,22 @@ export class ClientEnv {
 			return BigInt(result.amount);
 		}
 	}
+	/**
+	 * Checks whether or not this account is associated. (The node is aware of the relationship between the 0x and sei1
+	 * accounts)
+	 * 
+	 * Always returns `false` if this `ClientEnv` isn't associated with an account.
+	 */
+	async isAssociated(): Promise<boolean> {
+		if (this.#knownToBeAssociated) {
+			return true;
+		}
+		if (this.account == null) {
+			return false;
+		}
+		return (await this.queryClient.evm.eVMAddressBySeiAddress({seiAddress: this.account.seiAddress})).associated;
+	}
+	#knownToBeAssociated = false;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { toChecksumAddressEvm } from "../address.js";
-import { EVMABITupleComponent, NULL_BYTES, UINT256_SIZE, eVMTypeToComponent, encodedArrayType, normalizeTupleComponent } from "./common.js";
+import { EVMABIFunctionDefinition, EVMABITupleComponent, NULL_BYTES, UINT256_SIZE, eVMTypeToComponent, encodedArrayType, normalizeTupleComponent } from "./common.js";
 
 type PayloadDecodeType = "struct" | "array";
 class EvmPayloadDecoder {
@@ -239,6 +239,13 @@ class EvmPayloadDecoder {
 	}
 }
 
+/**
+ * Decodes the data as a single solidity value. This can be a primitive, array, or a tuple.
+ * 
+ * @param data The data to decode
+ * @param evmType the corresponding solidity type.
+ * @returns 
+ */
 export function decodeEvmType(data: Buffer, evmType: string | EVMABITupleComponent): any {
 	if (typeof evmType == "string") {
 		evmType = eVMTypeToComponent(evmType);
@@ -253,11 +260,25 @@ export function decodeEvmType(data: Buffer, evmType: string | EVMABITupleCompone
 	}
 }
 
-export function decodeEvmOutputAsArray(data: Buffer, output: EVMABITupleComponent[]): any {
+/**
+ * Decodes the data as an array of values
+ * 
+ * @param data The data to decode
+ * @param output The `output` property of a {@link EVMABIFunctionDefinition}
+ * @returns The result as an array of values corresponding to the array specified in `output`.
+ */
+export function decodeEvmOutputAsArray(data: Buffer, output: EVMABITupleComponent[]): any[] {
 	const decoder = new EvmPayloadDecoder(data, output, "array");
 	return decoder.resultArray;
 }
-export function decodeEvmOutputAsStruct(buffer: Buffer, output: EVMABITupleComponent[]): any {
-	const decoder = new EvmPayloadDecoder(buffer, output, "struct");
+/**
+ * Decodes the data as an array of values
+ * 
+ * @param data The data to decode
+ * @param output The `output` property of a {@link EVMABIFunctionDefinition}
+ * @returns The result as an object. The `name` property of the `EVMABITupleComponent` will be used for the keys.
+ */
+export function decodeEvmOutputAsStruct(data: Buffer, output: EVMABITupleComponent[]): {[key: string]: any} {
+	const decoder = new EvmPayloadDecoder(data, output, "struct");
 	return decoder.resultObject;
 }

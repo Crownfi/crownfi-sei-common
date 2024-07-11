@@ -2663,5 +2663,10 @@ export interface EVMTypeMap {
 	bytes30: Buffer,
 	bytes31: Buffer,
 	bytes32: Buffer,
+	byte: Buffer,
+	func: Buffer,
+	function: Buffer,
 	string: string,
 }
+export type EVMType = keyof EVMTypeMap | `${keyof EVMTypeMap}[]`;
+export type ABIDefType = EVMType | "tuple" | "tuple[]"

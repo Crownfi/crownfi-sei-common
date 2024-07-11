@@ -5,7 +5,8 @@
 	"type": "module",
 	"license": "UNLICENSED",
 	"scripts": {
-		"build": "rm -rf dist/* && mkdir -p dist && tsc"
+		"build": "rm -rf dist/* && mkdir -p dist && tsc",
+		"docs": "typedoc src/index.ts"
 	},
 	"dependencies": {
 		"@cosmjs/amino": "^0.32.3",
@@ -19,7 +20,8 @@
 	},
 	"devDependencies": {
 		"typescript": "^5.4.5",
-		"@types/semver": "^7.5.8"
+		"@types/semver": "^7.5.8",
+		"typedoc": "^0.26.4"
 	},
 	"publishConfig": {
 		"registry": "https://npm.crownfi.io"

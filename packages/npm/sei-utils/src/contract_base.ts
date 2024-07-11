@@ -18,6 +18,9 @@ export interface EvmExecuteInstruction {
 
 export type EvmOrWasmExecuteInstruction = EvmExecuteInstruction | WasmExecuteInstruction;
 
+/**
+ * Can be thrown by {@link ContractBase.checkVersion}
+ */
 export class ContractVersionNotSatisfiedError extends Error {
 	name!: "ContractVersionNotSatisfiedError";
 	contractAddress: Addr;
@@ -81,7 +84,7 @@ export class ContractBase<Q extends StargateQueryClient & WasmExtension> {
 	}
 	/**
 	 * Resolves the promise if the contract name matches and if the contract version satisfies the semver range
-	 * specified. Otherwise, the promise is rejected with a `ContractVersionNotSatisfiedError`.
+	 * specified. Otherwise, the promise is rejected with a {@link ContractVersionNotSatisfiedError}.
 	 * @param versions A map of name => version. e.g. `{"my-awesome-contract": "^1.0.0"}`
 	 */
 	async checkVersion(versions: { [name: string]: string }): Promise<void> {

@@ -2,7 +2,7 @@ import { Coin } from "@cosmjs/amino";
 import { SeiChainId, getDefaultNetworkConfig } from "./chain_config.js";
 import { BankExtension, QueryClient } from "@cosmjs/stargate";
 import { WasmExtension } from "@cosmjs/cosmwasm-stargate";
-import { SeiQueryClient, SeiEvmExtension } from "@crownfi/sei-js-core";
+import { SeiEvmExtension } from "@crownfi/sei-js-core";
 import { queryEvmContract } from "./evm-interop-utils/query_contract.js";
 import { ERC20_FUNC_DECIMALS, ERC20_FUNC_NAME, ERC20_FUNC_SYMBOL } from "./evm-interop-utils/erc20.js";
 
@@ -301,6 +301,9 @@ export function getUserTokenInfo(
 	unifiedDenom: string,
 	network: SeiChainId = getDefaultNetworkConfig().chainId
 ): UserTokenInfo {
+	if (userTokenInfoAliases[network][unifiedDenom]) {
+		unifiedDenom = userTokenInfoAliases[network][unifiedDenom];
+	}
 	return (
 		userTokenInfo[network][unifiedDenom] ?? {
 			name: "Unknown token (" + unifiedDenom + ")",
@@ -415,13 +418,13 @@ export function stringDecimalToBigInt(str: string | number, decimals: number): b
 /**
  * Returns a string which displays the specified amount and denom in a user-friendly way
  * @param amount the raw token amount as an integer
- * @param unifiedDenom the denom of the token, or "cw20/{address}" for a cw20 token
+ * @param unifiedDenom the denom of the token
  * @param trimTrailingZeros If true, the result won't have trailing zeros. e.g. "0.100000" becomes "0.1"
  * @returns A user friendly string, e.g. "1.234567 SEI"
  */
 export function UIAmount(
 	amount: bigint | string | number,
-	unifiedDenom: string,
+	unifiedDenom: UnifiedDenom,
 	trimTrailingZeros: boolean = false
 ): string {
 	const tokenUserInfo = getUserTokenInfo(unifiedDenom);

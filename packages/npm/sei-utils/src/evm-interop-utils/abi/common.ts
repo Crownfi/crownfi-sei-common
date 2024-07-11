@@ -1,3 +1,5 @@
+import { ABIDefType } from "./evm_type_map.js";
+
 export const NULL_BYTES = Buffer.alloc(32);
 export const ONE_BYTE = (() => {const buf = Buffer.alloc(32); buf[31] = 1; return buf;})();
 export const UINT256_SIZE = 32;
@@ -5,6 +7,9 @@ export const UINT256_MAX = 2n ** 256n - 1n;
 
 export type EVMABIFunctionType = "function" | "constructor" | "receive" | "fallback";
 export type EVMABIFunctionStateAccess = "pure" | "view" | "nonpayable" | "payable";
+/**
+ * Represents a function defined in accordance with the solidity ABI specification.
+ */
 export interface EVMABIFunctionDefinition {
 	name: string,
 	// Note, "receive" has no payload by definition
@@ -13,12 +18,23 @@ export interface EVMABIFunctionDefinition {
 	outputs: EVMABITupleComponent[],
 	stateMutability: EVMABIFunctionStateAccess
 }
-export interface EVMABITupleComponent {
+/**
+ * A struct field or function parametar
+ */
+export interface EVMABITupleComponent<T extends ABIDefType = ABIDefType> {
 	name: string,
-	type: string,
+	type: T,
+	/**
+	 * This should only be defiend if `type` is `tuple` or `tuple[]`
+	 */
 	components?: EVMABITupleComponent[]
 }
 
+/**
+ * 
+ * @param abiDef 
+ * @returns 
+ */
 export function tupleComponentTypeSignature(abiDef: EVMABITupleComponent): string {
 	const abiDefType = abiDef.type.trim();
 	if (abiDefType == "tuple" || abiDefType == "tuple[]") {
@@ -60,22 +76,20 @@ function fullTupleSubstring(str: string): [string, string, string] {
 /**
  * Converts an EVM function signature (with an optional outputs component) into an EVMABIFunctionDefinition
  * @param sig Something like "myFunc(uint256, uint256)" or "balanceOf(address owner) view returns (uint256 balance)"
- * @param type 
- * @param access 
  */
 export function functionSignatureToABIDefinition(sig: string): EVMABIFunctionDefinition {
 	const [name, inputs, modifiersAndOutput] = fullTupleSubstring(sig);
 	const [modifiers, outputs, rest] = fullTupleSubstring(modifiersAndOutput);
 
-	const inputAsComponent = normalizeTupleComponent({name: "arg", type: inputs});
+	const inputAsComponent = normalizeTupleComponent({name: "arg", type: inputs as ABIDefType});
 	const outputAsComponent = !modifiers.endsWith("returns") ?
 			{
 				name: "",
-				type: "tuple",
+				type: "tuple" as ABIDefType,
 				components: []
 			} : (
 			outputs ?
-				normalizeTupleComponent({name: "arg", type: outputs}) :
+				normalizeTupleComponent({name: "arg", type: outputs as ABIDefType}) :
 				typeAndNameToComponent(rest)
 		);
 	return {
@@ -106,21 +120,26 @@ function typeAndNameToComponent(typeString: string): EVMABITupleComponent {
 	if (typeString.indexOf(")", lastSpace) !== -1) {
 		return {
 			name: "",
-			type: typeString.trim()
+			type: typeString.trim() as ABIDefType
 		};
 	}
 	if (lastSpace == -1) {
         return {
             name: "",
-            type: typeString
+            type: typeString as ABIDefType
         }
     }
 	return {
 		name: typeString.substring(lastSpace).trim() || "",
-		type: typeString.substring(0, lastSpace).trim()
+		type: typeString.substring(0, lastSpace).trim() as ABIDefType
 	};
 }
 
+/**
+ * Parses a single type. This can be a primitive, array, or a tuple. For example `uint256` or `(uint32 x, bool y)`
+ * @param typeString the type to parse
+ * @returns 
+ */
 export function eVMTypeToComponent(typeString: string): EVMABITupleComponent {
 	return normalizeTupleComponent(
 		typeAndNameToComponent(typeString)
@@ -182,18 +201,18 @@ export function normalizeTupleComponent(abiDef: EVMABITupleComponent): EVMABITup
  * @internal
  * internal stuff donut use
  */
-export const encodedArrayType = function(type: string): [boolean, number | null, string] {
+export const encodedArrayType = function(type: string): [boolean, number | null, ABIDefType] {
 	// Note: In solidity, the behaviour is uint[][5] -> (uint[])[5]
 	//   Described as "an array of 5 dynamic arrays"
 
 	const i = type.lastIndexOf("[");
 	if(i === -1){
-		return [false, null, type];
+		return [false, null, type as ABIDefType];
 	}
 	const arrayLength = type.substring(i + 1, type.length - 1); // I'm assuming the last char is "]"
 	type = type.substring(0, i);
 	if(arrayLength === ""){
-		return [true, null, type];
+		return [true, null, type as ABIDefType];
 	}
-	return [true, Number(arrayLength) || 0, type];
+	return [true, Number(arrayLength) || 0, type as ABIDefType];
 };
