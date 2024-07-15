@@ -302,11 +302,11 @@ export function getUserTokenInfo(
 	unifiedDenom: string,
 	network: SeiChainId = getDefaultNetworkConfig().chainId
 ): UserTokenInfo {
-	if (userTokenInfoAliases[network][unifiedDenom]) {
+	if (userTokenInfoAliases[network] && userTokenInfoAliases[network][unifiedDenom]) {
 		unifiedDenom = userTokenInfoAliases[network][unifiedDenom];
 	}
 	return (
-		userTokenInfo[network][unifiedDenom] ?? {
+		(userTokenInfo[network] ?? {})[unifiedDenom] ?? {
 			name: "Unknown token (" + unifiedDenom + ")",
 			symbol: "(" + unifiedDenom + ")",
 			decimals: 0,
@@ -321,6 +321,7 @@ export function addUserTokenInfoAliases(
 	realAsset: string,
 	network: SeiChainId = getDefaultNetworkConfig().chainId
 ) {
+	userTokenInfoAliases[network] = userTokenInfoAliases[network] || {};
 	userTokenInfoAliases[network][aliasAsset] = realAsset;
 }
 
