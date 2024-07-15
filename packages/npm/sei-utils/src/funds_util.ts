@@ -168,6 +168,7 @@ export async function addUserTokenInfo(
 	const providedInfo: PartialUserTokenInfo = typeof baseOrPartialTokenInfo == "object" ?
 		baseOrPartialTokenInfo : {base: baseOrPartialTokenInfo};
 	
+	userTokenInfo[network] = userTokenInfo[network] || {};
 	if (userTokenInfo[network][unifiedDenom]) {
 		if (providedInfo.decimals) {
 			userTokenInfo[network][unifiedDenom].decimals = providedInfo.decimals;
