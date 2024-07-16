@@ -27,10 +27,10 @@ export interface ExternalAssetListItem {
 		png?: string | undefined,
 		[extension: string]: string | undefined
 	},
-	type_asset: "sdk.coin" | "erc20" | "cw20",
+	type_asset: "sdk.coin" | "erc20" | "cw20" | "ics20",
 	pointer_contract: {
-        "address": string,
-        "type_asset": "erc20" | "cw20"
+        address: string,
+        type_asset: "erc20" | "cw20"
 	}
 }
 
@@ -122,6 +122,7 @@ export async function addUserTokenInfo(
 						const base = (() => {
 							switch (assetListItem.type_asset) {
 								case "sdk.coin":
+								case "ics20":
 									return assetListItem.base;
 								case "cw20":
 									return "cw20/" + assetListItem.base;
