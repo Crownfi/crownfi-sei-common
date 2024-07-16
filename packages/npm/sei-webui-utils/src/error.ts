@@ -60,6 +60,9 @@ addErrorMsgFormatter((err: any) => {
 	) {
 		return null;
 	}
+	if (err instanceof DOMException) {
+		return null;
+	}
 	if (err.code == 4001) {
 		return {
 			title: "Cancelled",
