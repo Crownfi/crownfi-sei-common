@@ -138,6 +138,7 @@ export async function addUserTokenInfo(
 						if (!base) {
 							continue;
 						}
+						userTokenInfo[network] = userTokenInfo[network] || {};
 						userTokenInfo[network][base] = {
 							base,
 							name: assetListItem.name,
