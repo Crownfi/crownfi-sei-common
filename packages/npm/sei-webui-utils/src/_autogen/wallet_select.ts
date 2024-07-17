@@ -32,7 +32,7 @@ let _templateWalletOptions: HTMLTemplateElement | null = null;
 function getWalletOptionsTemplate(): HTMLTemplateElement {
 	if (_templateWalletOptions == null) {
 		 _templateWalletOptions = document.createElement("template")
-		 _templateWalletOptions.innerHTML = "\n\t<span cewt-ref=\"text\">Connect wallet</span>\n\t<dropdown-menu linked-elements=\"button:has(> #this)\" click-trigger=\"primary\" open-position=\"element-bottom-centered\">\n\t\t<dropdown-menu-item>\n\t\t\t<span>Sei-native address</span>\n\t\t\t<dropdown-menu-inner>\n\t\t\t\t<dropdown-menu-item value=\"sei-address-copy\">\n\t\t\t\t\t<span><span cewt-ref=\"sei-address-text\">[unknown]</span> (copy)</span>\n\t\t\t\t</dropdown-menu-item>\n\t\t\t\t<dropdown-menu-item value=\"sei-address-seitrace\">\n\t\t\t\t\t<span>View on seitrace</span><span class=\"cicon cicon-link-external\"></span>\n\t\t\t\t</dropdown-menu-item>\n\t\t\t\t<dropdown-menu-item value=\"sei-address-seican\">\n\t\t\t\t\t<span>View on seican</span><span class=\"cicon cicon-link-external\"></span>\n\t\t\t\t</dropdown-menu-item>\n\t\t\t</dropdown-menu-inner>\n\t\t</dropdown-menu-item>\n\t\t<dropdown-menu-item>\n\t\t\t<span>EVM address</span>\n\t\t\t<dropdown-menu-inner>\n\t\t\t\t<dropdown-menu-item value=\"evm-address-copy\">\n\t\t\t\t\t<span><span cewt-ref=\"evm-address-text\">[unknown]</span> (copy)</span>\n\t\t\t\t</dropdown-menu-item>\n\t\t\t\t<dropdown-menu-item value=\"evm-address-seitrace\">\n\t\t\t\t\t<span>View on seitrace</span><span class=\"cicon cicon-link-external\"></span>\n\t\t\t\t</dropdown-menu-item>\n\t\t\t</dropdown-menu-inner>\n\t\t</dropdown-menu-item>\n\t\t<hr>\n\t\t<dropdown-menu-item value=\"switch-wallet\">Switch wallet</dropdown-menu-item>\n\t\t<dropdown-menu-item value=\"disconnect\">Disconnect wallet</dropdown-menu-item>\n\t</dropdown-menu>\n";
+		 _templateWalletOptions.innerHTML = "\n\t<span cewt-ref=\"text\">Connect wallet</span>\n\t<dropdown-menu click-trigger=\"primary\" open-position=\"element-bottom-centered\" linked-elements=\"button:has(> #this)\">\n\t\t<dropdown-menu-item>\n\t\t\t<span>Sei-native address</span>\n\t\t\t<dropdown-menu-inner>\n\t\t\t\t<dropdown-menu-item value=\"sei-address-copy\">\n\t\t\t\t\t<span><span cewt-ref=\"sei-address-text\">[unknown]</span> (copy)</span>\n\t\t\t\t</dropdown-menu-item>\n\t\t\t\t<dropdown-menu-item value=\"sei-address-seitrace\">\n\t\t\t\t\t<span>View on seitrace</span><span class=\"cicon cicon-link-external\"></span>\n\t\t\t\t</dropdown-menu-item>\n\t\t\t\t<dropdown-menu-item value=\"sei-address-seican\">\n\t\t\t\t\t<span>View on seican</span><span class=\"cicon cicon-link-external\"></span>\n\t\t\t\t</dropdown-menu-item>\n\t\t\t</dropdown-menu-inner>\n\t\t</dropdown-menu-item>\n\t\t<dropdown-menu-item>\n\t\t\t<span>EVM address</span>\n\t\t\t<dropdown-menu-inner>\n\t\t\t\t<dropdown-menu-item value=\"evm-address-copy\">\n\t\t\t\t\t<span><span cewt-ref=\"evm-address-text\">[unknown]</span> (copy)</span>\n\t\t\t\t</dropdown-menu-item>\n\t\t\t\t<dropdown-menu-item value=\"evm-address-seitrace\">\n\t\t\t\t\t<span>View on seitrace</span><span class=\"cicon cicon-link-external\"></span>\n\t\t\t\t</dropdown-menu-item>\n\t\t\t</dropdown-menu-inner>\n\t\t</dropdown-menu-item>\n\t\t<hr class=\"gems\">\n\t\t<dropdown-menu-item value=\"switch-wallet\">Switch wallet</dropdown-menu-item>\n\t\t<dropdown-menu-item value=\"disconnect\">Disconnect wallet</dropdown-menu-item>\n\t</dropdown-menu>\n";
 	}
 	return _templateWalletOptions;
 }
@@ -87,28 +87,14 @@ let _templateWalletChoice: HTMLTemplateElement | null = null;
 function getWalletChoiceTemplate(): HTMLTemplateElement {
 	if (_templateWalletChoice == null) {
 		 _templateWalletChoice = document.createElement("template")
-		 _templateWalletChoice.innerHTML = "\n\t<img cewt-ref=\"img\" src=\"https://app.crownfi.io/assets/placeholder.svg\">\n\t<span cewt-ref=\"text\">undefined</span>\n";
+		 _templateWalletChoice.innerHTML = "\n\t<img src=\"https://app.crownfi.io/assets/placeholder.svg\" cewt-ref=\"img\">\n\t<span cewt-ref=\"text\">undefined</span>\n";
 	}
 	return _templateWalletChoice;
 }
 export class WalletChoiceAutogen extends HTMLButtonElement {
 	readonly refs: WalletChoiceRefs;
 	static get observedAttributes() {
-		return ["icon", "text"];
-	}
-	#attributeIconValue: string | null = null;
-	get icon(): string | null {
-		return this.#attributeIconValue;
-	}
-	set icon(v: string | null) {
-		if (v == null) {
-			this.removeAttribute("icon");
-		}else{
-			this.setAttribute("icon", v);
-		}
-	}
-	protected onIconChanged(oldValue: string | null, newValue: string | null) {
-		// To be overridden by child class
+		return ["text", "icon"];
 	}
 	#attributeTextValue: string | null = null;
 	get text(): string | null {
@@ -124,15 +110,29 @@ export class WalletChoiceAutogen extends HTMLButtonElement {
 	protected onTextChanged(oldValue: string | null, newValue: string | null) {
 		// To be overridden by child class
 	}
+	#attributeIconValue: string | null = null;
+	get icon(): string | null {
+		return this.#attributeIconValue;
+	}
+	set icon(v: string | null) {
+		if (v == null) {
+			this.removeAttribute("icon");
+		}else{
+			this.setAttribute("icon", v);
+		}
+	}
+	protected onIconChanged(oldValue: string | null, newValue: string | null) {
+		// To be overridden by child class
+	}
 	attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null) {
 		switch(name) {
-			case "icon":
-				this.#attributeIconValue = newValue;
-				this.onIconChanged(oldValue, newValue);
-				break;
 			case "text":
 				this.#attributeTextValue = newValue;
 				this.onTextChanged(oldValue, newValue);
+				break;
+			case "icon":
+				this.#attributeIconValue = newValue;
+				this.onIconChanged(oldValue, newValue);
 				break;
 			default:
 				// Shouldn't happen
@@ -243,7 +243,7 @@ let _templateSeedPhraseModal: HTMLTemplateElement | null = null;
 function getSeedPhraseModalTemplate(): HTMLTemplateElement {
 	if (_templateSeedPhraseModal == null) {
 		 _templateSeedPhraseModal = document.createElement("template")
-		 _templateSeedPhraseModal.innerHTML = "\n\t<h1>Enter seed phrase</h1>\n\t<i class=\"dialog-cicon cicon-warning\"></i>\n\t<p>Entering your seed phrase directly into any website is a very bad idea, as it will allow that website to authorize all transactions to all your accounts without your approval.</p>\n\t<p><i>This includes stealing all your funds from all accounts associated with the seed phrase!</i></p>\n\t<p>This functionality primarily exists for testing and development, and should never be used unless you fully understand what you\'re doing and the risks involved.</p>\n\t<form cewt-ref=\"form\" method=\"dialog\">\n\t\t<label>\n\t\t\t<span>Seed phrase:</span>\n\t\t\t<input placeholder=\"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\" name=\"seed\" type=\"text\">\n\t\t</label>\n\t\t<label>\n\t\t\t<span>Account Index (0 for first account, 1 for second account, etc.):</span>\n\t\t\t<input min=\"0\" name=\"index\" value=\"0\" type=\"number\" max=\"255\">\n\t\t</label>\n\t\t<label>\n\t\t\t<span>Coin type (118 if the phrase was generated with a Sei-native wallet, 60 if it was generated with an Ethereum wallet):</span>\n\t\t\t<input min=\"0\" name=\"cointype\" max=\"255\" value=\"118\" type=\"number\">\n\t\t</label>\n\t\t<div class=\"button-row equal-width\">\n\t\t\t<button class=\"danger small\">Pls don\'t steal me moni</button>\n\t\t\t<button class=\"small\" cewt-ref=\"cancel-btn\">Cancel</button>\n\t\t</div>\n\t</form>\n";
+		 _templateSeedPhraseModal.innerHTML = "\n\t<h1>Enter seed phrase</h1>\n\t<i class=\"dialog-cicon cicon-warning\"></i>\n\t<p>Entering your seed phrase directly into any website is a very bad idea, as it will allow that website to authorize all transactions to all your accounts without your approval.</p>\n\t<p><i>This includes stealing all your funds from all accounts associated with the seed phrase!</i></p>\n\t<p>This functionality primarily exists for testing and development, and should never be used unless you fully understand what you\'re doing and the risks involved.</p>\n\t<form method=\"dialog\" cewt-ref=\"form\">\n\t\t<label>\n\t\t\t<span>Seed phrase:</span>\n\t\t\t<input type=\"text\" placeholder=\"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\" name=\"seed\">\n\t\t</label>\n\t\t<label>\n\t\t\t<span>Account Index (0 for first account, 1 for second account, etc.):</span>\n\t\t\t<input min=\"0\" name=\"index\" value=\"0\" type=\"number\" max=\"255\">\n\t\t</label>\n\t\t<label>\n\t\t\t<span>Coin type (118 if the phrase was generated with a Sei-native wallet, 60 if it was generated with an Ethereum wallet):</span>\n\t\t\t<input value=\"118\" min=\"0\" type=\"number\" max=\"255\" name=\"cointype\">\n\t\t</label>\n\t\t<div class=\"button-row equal-width\">\n\t\t\t<button class=\"danger small\">Pls don\'t steal me moni</button>\n\t\t\t<button cewt-ref=\"cancel-btn\" class=\"small\">Cancel</button>\n\t\t</div>\n\t</form>\n";
 	}
 	return _templateSeedPhraseModal;
 }
