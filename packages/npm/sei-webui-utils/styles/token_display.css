@@ -1,0 +1,4 @@
+span[is="token-display"] {
+	display: inline-flex;
+	align-items: center;
+}

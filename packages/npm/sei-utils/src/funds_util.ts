@@ -283,6 +283,8 @@ export async function addUserTokenInfo(
 	)
 	if (!providedInfo.icon) {
 		if (/(\/|%2f)/i.test(providedInfo.symbol!)) {
+			providedInfo.icon = "https://www.crownfi.io/assets/placeholder.svg";
+		} else {
 			const fallbackIcon = "https://www.crownfi.io/assets/coins/" + providedInfo.symbol!.toLowerCase() + ".svg";
 			const contentType = (await fetch(fallbackIcon, {method: "HEAD"})).headers.get("content-type") + "";
 			if (contentType.startsWith("image/")) {
@@ -290,8 +292,6 @@ export async function addUserTokenInfo(
 			} else {
 				providedInfo.icon = "https://www.crownfi.io/assets/placeholder.svg";
 			}
-		} else {
-			providedInfo.icon = "https://www.crownfi.io/assets/placeholder.svg";
 		}
 	}
 	userTokenInfo[network][providedInfo.base] = providedInfo as UserTokenInfo;
@@ -331,7 +331,7 @@ export function hasUserTokenInfo(
 	unifiedDenom: string,
 	network: SeiChainId = getDefaultNetworkConfig().chainId
 ): boolean {
-	return userTokenInfo[network][unifiedDenom] != null;
+	return userTokenInfo[network] != null && userTokenInfo[network][unifiedDenom] != null;
 }
 
 /**
