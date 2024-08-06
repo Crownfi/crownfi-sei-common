@@ -1,6 +1,6 @@
 {
 	"name": "@crownfi/sei-webui-utils",
-	"version": "0.3.15",
+	"version": "0.3.16",
 	"main": "dist/index.js",
 	"style": "styles/index.css",
 	"type": "module",

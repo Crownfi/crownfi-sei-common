@@ -236,6 +236,7 @@ export class TokenDisplayElement extends HTMLSpanElement {
 	 * @internal
 	 */
 	connectedCallback() {
+		this.setAttribute("is", "token-display");
 		// There seems to be a specific case where this element can be referenced before it's initialized, which means
 		// properties get assigned onto "this" instead of running the setter on the prototype
 		if (this.hasOwnProperty("denom")) {
