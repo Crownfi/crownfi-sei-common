@@ -212,7 +212,6 @@ export class TokenDisplayElement extends HTMLSpanElement {
 			this.#elemLogo.hidden = true;
 			this.#elemName.hidden = true;
 		}
-		//this.childNodes.
 	}
 	/**
 	 * @internal
@@ -232,6 +231,38 @@ export class TokenDisplayElement extends HTMLSpanElement {
 				// no default
 		}
 		this.#refreshDisplay();
+	}
+	/**
+	 * @internal
+	 */
+	connectedCallback() {
+		// There seems to be a specific case where this element can be referenced before it's initialized, which means
+		// properties get assigned onto "this" instead of running the setter on the prototype
+		if (this.hasOwnProperty("denom")) {
+			const value = this.denom;
+			delete (this as any).denom; // Delete the property that's actually on "this"
+			this.denom = value; // Run the setter on the prototype
+		}
+		if (this.hasOwnProperty("amount")) {
+			const value = this.amount;
+			delete (this as any).amount; // Delete the property that's actually on "this"
+			this.amount = value; // Run the setter on the prototype
+		}
+		if (this.hasOwnProperty("fullName")) {
+			const value = this.fullName;
+			delete (this as any).fullName; // Delete the property that's actually on "this"
+			this.fullName = value; // Run the setter on the prototype
+		}
+		if (this.hasOwnProperty("trailingZeros")) {
+			const value = this.trailingZeros;
+			delete (this as any).trailingZeros; // Delete the property that's actually on "this"
+			this.trailingZeros = value; // Run the setter on the prototype
+		}
+		if (this.hasOwnProperty("noLogo")) {
+			const value = this.noLogo;
+			delete (this as any).noLogo; // Delete the property that's actually on "this"
+			this.noLogo = value; // Run the setter on the prototype
+		}
 	}
 }
 customElements.define("token-display", TokenDisplayElement, {extends: "span"});
