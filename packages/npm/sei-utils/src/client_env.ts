@@ -24,13 +24,11 @@ import { EthereumProvider, ReceiptInformation, Transaction as EvmTransaction } f
 import { Secp256k1, ExtendedSecp256k1Signature } from '@cosmjs/crypto'; // Heavy import but it's already imported elsewhere
 
 import { nativeDenomSortCompare, UIAmount, UnifiedDenom } from "./funds_util.js";
-import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx.js";
 import { Addr } from "./common_sei_types.js";
 import { getEvmAddressFromPubkey, toChecksumAddressEvm } from "./evm-interop-utils/address.js";
 import { ClientAccountMissingError, ClientNotSignableError, ClientPubkeyUnknownError, EvmAddressValidationMismatchError } from "./error.js";
-import { EVMABIFunctionDefinition, functionSignatureToABIDefinition } from "./evm-interop-utils/abi/common.js";
+import { EVMABIFunctionDefinition } from "./evm-interop-utils/abi/common.js";
 import { addSeiClientAccountDataToCache, cosmosMessagesToEvmMessages, encodeEvmFuncCall, getSeiClientAccountDataFromNetwork, queryEvmContract, queryEvmContractForObject } from "./evm-interop-utils/index.js";
-import { decodeEvmOutputAsArray, decodeEvmOutputAsStruct } from "./evm-interop-utils/abi/decode.js";
 import { ERC20_FUNC_BALANCE_OF, ERC20_FUNC_TOTAL_SUPPLY } from "./evm-interop-utils/erc20.js";
 import { EvmOrWasmExecuteInstruction } from "./contract_base.js";
 import { keccak256 } from "keccak-wasm";
