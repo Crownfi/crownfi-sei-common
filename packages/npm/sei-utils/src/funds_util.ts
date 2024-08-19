@@ -14,6 +14,55 @@ import { ERC20_FUNC_DECIMALS, ERC20_FUNC_NAME, ERC20_FUNC_SYMBOL } from "./evm-i
  */
 export type UnifiedDenom = string;
 
+/**
+ * Like cosmjs's `Coin`, but with `amount` being a `bigint` instead of a `string`.
+ * 
+ * If you want a helper function for constructing 
+ */
+export interface BigIntCoinObj {
+	amount: bigint,
+	denom: string
+}
+
+/**
+ * Like cosmjs's `Coin`, but with `amount` being a `bigint` instead of a `string`.
+ * 
+ * This implements {@link BigIntCoinObj}, only difference being is that this class has helper methods.
+ * 
+ */
+export class BigIntCoin {
+	amount: bigint;
+	denom: string;
+	constructor(object: BigIntCoinObj | Coin)
+	constructor(amount: string | bigint | number, denom: string)
+	constructor(amountOrObject: string | bigint | number | BigIntCoinObj | Coin, denom?: string) {
+		if (typeof amountOrObject == "object") {
+			this.amount = BigInt(amountOrObject.amount);
+			this.denom = amountOrObject.denom;
+		} else {
+			this.amount = BigInt(amountOrObject);
+			this.denom = denom + "";
+		}
+	}
+	/**
+	 * @returns an object with the `amount` as a string and `denom` unchanged.
+	 */
+	intoCosmCoin(): Coin {
+		return {
+			denom: this.denom,
+			amount: this.amount + ""
+		};
+	}
+	/**
+	 * Returns a string which displays this object's amount and denom in a user-friendly way.
+	 * 
+     * @param trimTrailingZeros If true, the result won't have trailing zeros. e.g. "0.100000" becomes "0.1"
+     * @returns A user friendly string, e.g. "1.234567 SEI"
+	 */
+	UIAmount(trimTrailingZeros: boolean = false): string {
+		return UIAmount(this.amount, this.denom, trimTrailingZeros);
+	}
+}
 
 export interface ExternalAssetListItem {
 	name: string,

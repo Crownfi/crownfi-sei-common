@@ -1,6 +1,7 @@
 import { applyCustomElementsWorkaround } from "@aritz-cracker/browser-utils";
+import { Coin } from "@cosmjs/amino";
 import { getRpcQueryClient } from "@crownfi/sei-js-core";
-import { addUserTokenInfo, getUserTokenInfo, bigIntToStringDecimal, hasUserTokenInfo, getDefaultNetworkConfig, getCometClient } from "@crownfi/sei-utils";
+import { addUserTokenInfo, getUserTokenInfo, bigIntToStringDecimal, hasUserTokenInfo, getDefaultNetworkConfig, getCometClient, BigIntCoinObj } from "@crownfi/sei-utils";
 await applyCustomElementsWorkaround();
 
 function tryParseBigInt(input: string): bigint | null {
@@ -38,8 +39,6 @@ export class TokenDisplayElement extends HTMLSpanElement {
 		});
 		this.#elemName = document.createElement("span");
 		this.#elemName.classList.add("token-display-name");
-
-
 	}
 	static get observedAttributes() {
 		return ["denom", "amount", "full-name", "trailing-zeros", "no-logo"];
@@ -70,15 +69,22 @@ export class TokenDisplayElement extends HTMLSpanElement {
 	 * * If the value is an integer, then {@link getUserTokenInfo} is called with the
 	 *   {@link TokenDisplayElement.denom | `denom` property} and the current default network, and the resulting
 	 *   `decimals` value is used with {@link bigIntToStringDecimal} to display the value.
+	 * 
+	 * Setting this value to an object defined like so: `{amount: string | bigint | number, denom: string}` will update
+	 * both the `amount` attribute and the `denom` attribute.
 	 */
-	get amount() {
+	get amount(): string | null {
 		return this.getAttribute("amount");
 	}
-	set amount(value: string | null) {
+	set amount(value: string | bigint | number | null | Coin | BigIntCoinObj | {amount: number, denom: string}) {
 		if (value == null) {
 			this.removeAttribute("amount");
+		} else if (typeof value == "object"){
+			this.denom = null;
+			this.setAttribute("amount", value.amount + "")
+			this.denom = value.denom;
 		} else {
-			this.setAttribute("amount", value);
+			this.setAttribute("amount", value + "");
 		}
 	}
 	#fullName: boolean = false;
