@@ -1,0 +1,34 @@
+{
+	"externalSymbolLinkMappings": {
+		"@crownfi/ethereum-rpc-types": {
+			"*": "https://developer.crownfi.io/npm/@crownfi/ethereum-rpc-types/"
+		},
+		"@crownfi/sei-js-core": {
+			"*": "https://developer.crownfi.io/npm/@crownfi/sei-js-core/"
+		},
+		"@crownfi/sei-utils": {
+			"*": "https://developer.crownfi.io/npm/@crownfi/sei-utils/"
+		},
+		"@crownfi/css-gothic-fantasy": {
+			"*": "https://developer.crownfi.io/npm/@crownfi/css-gothic-fantasy/"
+		},
+		"@cosmjs/amino": {
+			"*": "https://cosmos.github.io/cosmjs/latest/amino/"
+		},
+		"@cosmjs/tendermint-rpc": {
+			"*": "https://cosmos.github.io/cosmjs/latest/tendermint-rpc/"
+		},
+		"@cosmjs/proto-signing": {
+			"*": "https://cosmos.github.io/cosmjs/latest/proto-signing/"
+		},
+		"@cosmjs/stargate": {
+			"*": "https://cosmos.github.io/cosmjs/latest/stargate/"
+		},
+		"@aritz-cracker/browser-utils": {
+			"*": "https://docs.aritzcracker.ca/npm/@aritz-cracker/browser-utils/"
+		},
+		"dropdown-menu-element": {
+			"*": "https://docs.aritzcracker.ca/npm/dropdown-menu-element/"
+		}
+	}
+}

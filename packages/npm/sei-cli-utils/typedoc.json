@@ -1,0 +1,25 @@
+{
+	"externalSymbolLinkMappings": {
+		"@crownfi/sei-js-core": {
+			"*": "https://developer.crownfi.io/npm/@crownfi/sei-js-core/"
+		},
+		"@crownfi/sei-utils": {
+			"*": "https://developer.crownfi.io/npm/@crownfi/sei-utils/"
+		},
+		"@crownfi/css-gothic-fantasy": {
+			"*": "https://developer.crownfi.io/npm/@crownfi/css-gothic-fantasy/"
+		},
+		"@cosmjs/amino": {
+			"*": "https://cosmos.github.io/cosmjs/latest/amino/"
+		},
+		"@cosmjs/cosmwasm-stargate": {
+			"*": "https://cosmos.github.io/cosmjs/latest/cosmwasm-stargate/"
+		},
+		"@cosmjs/proto-signing": {
+			"*": "https://cosmos.github.io/cosmjs/latest/proto-signing/"
+		},
+		"@cosmjs/stargate": {
+			"*": "https://cosmos.github.io/cosmjs/latest/stargate/"
+		}
+	}
+}
