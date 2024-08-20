@@ -473,16 +473,19 @@ export function stringDecimalToBigInt(str: string | number, decimals: number): b
  * @param amount the raw token amount as an integer
  * @param unifiedDenom the denom of the token
  * @param trimTrailingZeros If true, the result won't have trailing zeros. e.g. "0.100000" becomes "0.1"
+ * @param showSymbol If true, token symbol will be appended to the final string
  * @returns A user friendly string, e.g. "1.234567 SEI"
  */
 export function UIAmount(
 	amount: bigint | string | number,
 	unifiedDenom: UnifiedDenom,
-	trimTrailingZeros: boolean = false
+	trimTrailingZeros: boolean = false,
+	showSymbol: boolean = true,
 ): string {
 	const tokenUserInfo = getUserTokenInfo(unifiedDenom);
 	if (typeof amount == "string") {
 		amount = BigInt(amount);
 	}
-	return bigIntToStringDecimal(amount, tokenUserInfo.decimals, trimTrailingZeros) + " " + tokenUserInfo.symbol;
+	const symbol = showSymbol ? " " + tokenUserInfo.symbol : "";
+	return bigIntToStringDecimal(amount, tokenUserInfo.decimals, trimTrailingZeros) + symbol;
 }
