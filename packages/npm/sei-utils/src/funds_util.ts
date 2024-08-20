@@ -314,7 +314,7 @@ export async function addUserTokenInfo(
 			}
 			if (!providedInfo.decimals) {
 				providedInfo.decimals = metadata.denomUnits.find(
-					unit => unit.denom == metadata.display
+					unit => unit.denom == denom
 				)?.exponent || 0;
 			}
 			if (!providedInfo.icon) {
