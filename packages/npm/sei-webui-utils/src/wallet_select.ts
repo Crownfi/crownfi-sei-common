@@ -361,7 +361,7 @@ export class WalletModalElement extends WalletModalAutogen {
 		(() => {
 			const choiceElem = new WalletChoiceElement();
 			choiceElem.text = "Ethereum-based wallet";
-			choiceElem.icon = "https://app.crownfi.io/assets/wallets/ethereum.svg";
+			choiceElem.icon = "https://www.crownfi.io/assets/wallets/ethereum.svg";
 			choiceElem.value = "ethereum";
 			if (discoveredNativeSeiWallet) {
 				choiceElem.text += "\nSei-native wallet found";
@@ -383,14 +383,14 @@ export class WalletModalElement extends WalletModalAutogen {
 		if (experimentalWalletOptions.has("read_only")) {
 			const choiceElem = new WalletChoiceElement();
 			choiceElem.text = "Enter address\nRead-only account";
-			choiceElem.icon = "https://app.crownfi.io/assets/placeholder.svg";
+			choiceElem.icon = "https://www.crownfi.io/assets/placeholder.svg";
 			choiceElem.value = "read-only-address";
 			availableWallets.push(choiceElem);
 		}
 		if (experimentalWalletOptions.has("seed_wallet")) {
 			const choiceElem = new WalletChoiceElement();
 			choiceElem.text = "Enter mnemonic seed\nThis is dangerous! You probably shouldn't do this!";
-			choiceElem.icon = "https://app.crownfi.io/assets/placeholder.svg";
+			choiceElem.icon = "https://www.crownfi.io/assets/placeholder.svg";
 			choiceElem.value = "seed-wallet";
 			availableWallets.push(choiceElem);
 		}
