@@ -279,7 +279,7 @@ export class ClientEnv {
 					chainName: "Sei (" + chainConfig.chainId + ")",
 					rpcUrls: [chainConfig.evmUrl],
 					iconUrls: [
-						"https://app.crownfi.io/assets/coins/sei.svg"
+						"https://www.crownfi.io/assets/coins/sei.svg"
 					],
 					nativeCurrency: {
 						name: "Sei",
@@ -287,7 +287,6 @@ export class ClientEnv {
 						decimals: 18
 					},
 					blockExplorerUrls: ["https://seitrace.com/"]
-
 				}]
 			})
 			await provider.request({
@@ -477,7 +476,7 @@ export class ClientEnv {
 			if (accounts.length !== 1) {
 				return [
 					await getStargateClient(cometClient),
-					null,
+					ethereumProvider,
 					null,
 					null,
 					"Expected wallet to expose exactly 1 account but got " + accounts.length + " accounts",
@@ -487,7 +486,7 @@ export class ClientEnv {
 				// The "real" reason is that we can only derive EVM compatible addresses from secp256k1 public keys
 				return [
 					await getStargateClient(cometClient),
-					null,
+					ethereumProvider,
 					null,
 					null,
 					"An account was received which does not use the \"secp256k1\" signing algorithm. " +
@@ -824,6 +823,20 @@ export class ClientEnv {
 		}
 	}
 
+	/**
+	 * Executes a single contract instrcution
+	 * 
+	 * ⚠️ This currently cannot be used to execute EVM contracts, as the transaction will be signed with a cosmos
+	 * signature, and Sei currently requires all top-level EVM invocations to have EVM signatures.
+	 * 
+	 * @param instruction The contract instruction to execute.
+	 * @param memo Optional transaction memo
+	 * @param fee The fee to pay, defaults to "auto"
+	 * @param finality if `"broadcasted"`, this function will resolve whenever the transaction is sent to the chain.
+	 * If `{confirmed: {}}`, then the function will resolve when the transaction is fully processed. This defaults to
+	 * `{confirmed: { timeoutMs: 60000 }}`
+	 * @returns the transaction hash or its receipt, depending on how `finality` was specified
+	 */
 	executeContract(instruction: EvmOrWasmExecuteInstruction): Promise<DeliverTxResponse>;
 	executeContract(instruction: EvmOrWasmExecuteInstruction, memo?: string): Promise<DeliverTxResponse>;
 	executeContract(instruction: EvmOrWasmExecuteInstruction, memo?: string, fee?: "auto" | StdFee): Promise<DeliverTxResponse>;
@@ -854,6 +867,20 @@ export class ClientEnv {
 		return this.executeContractMulti([instruction], memo, fee, finality);
 	}
 
+	/**
+	 * Executes the specified contract instructions
+	 * 
+	 * ⚠️ This currently cannot be used to execute EVM contracts, as the transaction will be signed with a cosmos
+	 * signature, and Sei currently requires all top-level EVM invocations to have EVM signatures.
+	 * 
+	 * @param instruction The contract instruction to execute.
+	 * @param memo Optional transaction memo
+	 * @param fee The fee to pay, defaults to "auto"
+	 * @param finality if `"broadcasted"`, this function will resolve whenever the transaction is sent to the chain.
+	 * If `{confirmed: {}}`, then the function will resolve when the transaction is fully processed. This defaults to
+	 * `{confirmed: { timeoutMs: 60000 }}`
+	 * @returns the transaction hash or its receipt, depending on how `finality` was specified
+	 */
 	executeContractMulti(instructions: EvmOrWasmExecuteInstruction[]): Promise<DeliverTxResponse>;
 	executeContractMulti(instructions: EvmOrWasmExecuteInstruction[], memo?: string): Promise<DeliverTxResponse>;
 	executeContractMulti(
@@ -1023,6 +1050,11 @@ export class ClientEnv {
 	}
 	/**
 	 * Encodes the specified contract instructions into an array of cosmos messages
+	 * 
+	 * ⚠️ This uses a placeholder `typeUrl` for EVM invocations, as at the time of writing, Sei does not support
+	 * calling the EVM in a top-level cosmos message without an EVM signature. Though the resulting `EncodeObject[]`
+	 * may still be used with {@link cosmosMessagesToEvmMessages} and {@link makeHackyTransactionSequenceAsNeeded}
+	 * 
 	 * @param instructions contract instructions to encode
 	 * @returns 
 	 */
@@ -1061,7 +1093,22 @@ export class ClientEnv {
 		});
 	}
 	/**
-	 * Sei currently doesn't expose its EVM call message type on the top level, so this... helps you account for that.
+	 * A key compontent in compensating for Sei's idiosyncracies in its CosmWasm <> EVM interop.
+	 * 
+	 * Idiosyncracies being:
+	 * - Sei requires top-level EVM invoke instructions to be ...
+	 *     - the _one and only_ thing that occupies the transaction.
+	 *     - signed by an Ethereum wallet. There's no way to invoke the EVM on the top level using a cosmos signature.
+	 * 
+	 * Additionally, ethereum wallets cannot bundle multiple instructions per transaction.
+	 * 
+	 * To help with this, this function takes the `EncodeObject[]` provided, which may include an internal `typeUrl`
+	 * which reprensts EVM invocations, and seperates them into EVM messages or Cosmos messages as needed.
+	 * 
+	 * - If this represents an Ethereum-only client
+	 *   - All messages will be converted to EVM messages using {@link cosmosMessagesToEvmMessages}
+	 * - If this represents a cosmos client
+	 *   - Cosmos messages will be returned as-is, with any interspersed EVM messages returned as EVM messages
 	 */
 	async makeHackyTransactionSequenceAsNeeded(
 		msgs: EncodeObject[]
@@ -1078,11 +1125,6 @@ export class ClientEnv {
 			if (evmCallIndex == -1) {
 				result.push({cosmMsg: msgs});
 				break;
-			}
-			if (this.hasEthereum()) {
-				throw new ClientNotSignableError(
-					"Currently EVM invocations may only be signed by ethereum wallets"
-				);
 			}
 			const cosmEvmMsg = msgs[evmCallIndex];
 			result.push({evmMsg: (await cosmosMessagesToEvmMessages(this.queryClient, [cosmEvmMsg], this.account?.evmAddress))[0]});

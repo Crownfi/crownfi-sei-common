@@ -19,23 +19,28 @@ export type UnifiedDenom = string;
  * 
  * If you want a helper function for constructing 
  */
-export interface BigIntCoinObj {
+export interface IBigIntCoin {
 	amount: bigint,
 	denom: string
 }
 
 /**
+ * @deprecated use {@link IBigIntCoin} instead
+ */
+export interface BigIntCoinObj extends IBigIntCoin {}
+
+/**
  * Like cosmjs's `Coin`, but with `amount` being a `bigint` instead of a `string`.
  * 
- * This implements {@link BigIntCoinObj}, only difference being is that this class has helper methods.
+ * This implements {@link IBigIntCoin}, only difference being is that this class has helper methods.
  * 
  */
-export class BigIntCoin {
+export class BigIntCoin implements IBigIntCoin {
 	amount: bigint;
 	denom: string;
-	constructor(object: BigIntCoinObj | Coin)
+	constructor(object: IBigIntCoin | Coin)
 	constructor(amount: string | bigint | number, denom: string)
-	constructor(amountOrObject: string | bigint | number | BigIntCoinObj | Coin, denom?: string) {
+	constructor(amountOrObject: string | bigint | number | IBigIntCoin | Coin, denom?: string) {
 		if (typeof amountOrObject == "object") {
 			this.amount = BigInt(amountOrObject.amount);
 			this.denom = amountOrObject.denom;
