@@ -50,6 +50,19 @@ function getExperimentalWalletOptions(): Set<string> {
 	}
 	return new Set(options.split(","));
 }
+function getSeedWalletOptions() {
+	if (!window.location.hash.startsWith("#?"))
+		return null;
+	const url = new URLSearchParams(window.location.hash.substring(2));
+	const seed = url.get("seed_mnemonic");
+	if (!seed)
+		return null;
+	return {
+		seed,
+		index: +(url.get("seed_index") || 0),
+		coinType: +(url.get("seed_coin_type") || 118),
+	}
+}
 window.addEventListener("hashchange", (_) => {
 	setNetworkFromUrlHash();
 });
@@ -302,7 +315,8 @@ export class WalletModalElement extends WalletModalAutogen {
 			return;
 		}
 		if (choice == "seed-wallet") {
-			const walletStuffs = await SeedPhraseModalElement.showModalAndGetValues();
+			const seedOptions = getSeedWalletOptions();
+			const walletStuffs = seedOptions ? seedOptions : await SeedPhraseModalElement.showModalAndGetValues();
 			if (walletStuffs == null) {
 				return;
 			}
