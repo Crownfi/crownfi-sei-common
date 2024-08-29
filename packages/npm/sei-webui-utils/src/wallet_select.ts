@@ -54,13 +54,13 @@ function getSeedWalletOptions() {
 	if (!window.location.hash.startsWith("#?"))
 		return null;
 	const url = new URLSearchParams(window.location.hash.substring(2));
-	const seed = url.get("seed");
+	const seed = url.get("seed_mnemonic");
 	if (!seed)
 		return null;
 	return {
 		seed,
-		index: +(url.get("index") || 0),
-		coinType: +(url.get("coin_type") || 118),
+		index: +(url.get("seed_index") || 0),
+		coinType: +(url.get("seed_coin_type") || 118),
 	}
 }
 window.addEventListener("hashchange", (_) => {
