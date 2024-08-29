@@ -91,7 +91,7 @@ export interface ExternalAssetListItem {
 /**
  * Used for `Array.prototype.sort` when dealing with `Coin[]`'s
  */
-export function nativeDenomSortCompare(a: Coin, b: Coin) {
+export function nativeDenomSortCompare<T extends {denom: string}>(a: T, b: T) {
 	if (a.denom < b.denom) {
 		return -1;
 	} else if (a.denom > b.denom) {
