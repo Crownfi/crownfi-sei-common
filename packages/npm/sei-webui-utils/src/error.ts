@@ -42,11 +42,23 @@ addErrorMsgFormatter((err: any) => {
 	}
 	return {
 		title: "Sei node needs updating",
-		message: "Trades using Ethereum-based wallets which result in ERC20 tokens as output are dependent on \
-			versions of Sei released after June 17th 2024.\n\
-			Seems like the connected network hasn't upgraded yet.",
+		message: "Trades using Ethereum-based wallets which result in ERC20 tokens as output are not possible using \
+			the current version of the Sei network.\nThis is due to an issue with Sei's incomplete EVM/WASM\
+			interoperability.",
 		dialogIcon: "cry",
 		dialogClass: "error"
+	}
+});
+
+addErrorMsgFormatter((err: any) => {
+	if (!err || err.message !== "Transaction declined" || err.name !== "Error") {
+		return null;
+	}
+	return {
+		title: "Cancelled",
+		message: "You've successfully asserted your right to say \"no\".",
+		dialogIcon: "check-circle-o",
+		dialogClass: "success"
 	}
 });
 
