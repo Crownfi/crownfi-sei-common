@@ -32,6 +32,7 @@ import { addSeiClientAccountDataToCache, cosmosMessagesToEvmMessages, encodeEvmF
 import { ERC20_FUNC_BALANCE_OF, ERC20_FUNC_TOTAL_SUPPLY } from "./evm-interop-utils/erc20.js";
 import { EvmOrWasmExecuteInstruction } from "./contract_base.js";
 import { keccak256 } from "keccak-wasm";
+import { StupidCompassWalletWorkaround } from "./evm-interop-utils/stupid_compass_wallet_workaround.js";
 
 /**
  * The account data used by the `ClientEnv` with a wallet.
@@ -265,9 +266,14 @@ export class ClientEnv {
 		const chainConfig =  getNetworkConfig(chainId)!;
 		const evmChainIdString = "0x" + chainConfig.evmChainId.toString(16)
 		try {
-			await provider.request(
-				{method: "wallet_switchEthereumChain", params: [{chainId: evmChainIdString}]}
-			);
+			if (await provider.request({
+				method: "eth_chainId",
+				params: []
+			}) != evmChainIdString) {
+				await provider.request(
+					{method: "wallet_switchEthereumChain", params: [{chainId: evmChainIdString}]}
+				);
+			}
 		}catch(ex: any) {
 			if (ex.code != 4902) {
 				throw ex;
@@ -401,11 +407,15 @@ export class ClientEnv {
 						" did not provide a signer. (Is the wallet unlocked and are we authorized?)",
 				};
 			}
+			let ethereumProvider = KNOWN_SEI_PROVIDER_INFO[provider].providesEvm ? (
+				window.ethereum ?? null
+			) : null;
+			if (ethereumProvider != null && provider == "compass") {
+				ethereumProvider = new StupidCompassWalletWorkaround(ethereumProvider);
+			}
 			return {
 				cosmosSigner: signer,
-				ethereumProvider: KNOWN_SEI_PROVIDER_INFO[provider].providesEvm ? (
-					window.ethereum ?? null
-				) : null
+				ethereumProvider
 			};
 		} catch (ex: any) {
 			return {
@@ -495,7 +505,7 @@ export class ClientEnv {
 			}
 			const evmAddress = getEvmAddressFromPubkey(accounts[0].pubkey);
 			if (ethereumProvider != null) {
-				ClientEnv.connectEthProvider(ethereumProvider, chainId, evmAddress);
+				await ClientEnv.connectEthProvider(ethereumProvider, chainId, evmAddress);
 			}
 			return [
 				await getSigningClient(
