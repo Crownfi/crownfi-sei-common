@@ -5,6 +5,38 @@ import { ClientEnv, MaybeSelectedProviderString, SeiChainId, SeiClientAccountDat
 import { SeedPhraseModalAutogen, WalletChoiceAutogen, WalletModalAutogen, WalletOptionsAutogen } from "./_autogen/wallet_select.js";
 await applyCustomElementsWorkaround();
 import "dropdown-menu-element"; // The element has to exist plus we need the event types
+
+// These event emitters should be registered first, especially defaultNetworkChanged.
+// Turns out `customElements.define` synchronously calls the constructors and attribute callbacks on elements already
+// on the page. So we have a case where the default network was selected before this message can show. 
+seiUtilEventEmitter.on("defaultNetworkChanged", (ev) => {
+	if (ev.chainId != "pacific-1") {
+		alert(
+			"Development network selected",
+			"This app is connected to Sei's \"" + ev.chainId + "\" network, this is a blockchain intended for testing " +
+				"and development. Nothing done on this network has any \"real\" value.\n" +
+				"All functionality shown here is for for demonstration purposes only.",
+			"warning",
+			"warning"
+		);
+	}
+});
+
+seiUtilEventEmitter.on("defaultProviderChanged", (ev) => {
+	currentClientAccountData = ev.account;
+	if (ev.provider == null) {
+		localStorage.removeItem("sei_provider");
+	} else {
+		localStorage.setItem("sei_provider", ev.provider);
+	}
+	(qa(`button[is="wallet-options"]`) as NodeListOf<WalletOptionsButtonElement>).forEach(elem => {
+		elem.updateProvider(ev.provider, ev.account);
+	});
+	(qa(`button[is="wallet-disconnect"]`) as NodeListOf<WalletDisconnectButtonElement>).forEach(elem => {
+		elem.updateProvider(ev.provider);
+	});
+});
+
 // Should this be here?
 declare global {
 	interface GlobalEventHandlersEventMap {
@@ -205,34 +237,6 @@ export class WalletDisconnectButtonElement extends HTMLButtonElement {
 }
 customElements.define("wallet-disconnect", WalletDisconnectButtonElement, {extends: "button"});
 
-seiUtilEventEmitter.on("defaultNetworkChanged", (ev) => {
-	if (ev.chainId != "pacific-1") {
-		alert(
-			"Development network selected",
-			"This app is connected to Sei's \"" + ev.chainId + "\" network, this is a blockchain intended for testing " +
-				"and development. Nothing done on this network has any \"real\" value.\n" +
-				"All functionality shown here is for for demonstration purposes only.",
-			"warning",
-			"warning"
-		);
-	}
-});
-
-seiUtilEventEmitter.on("defaultProviderChanged", (ev) => {
-	currentClientAccountData = ev.account;
-	if (ev.provider == null) {
-		localStorage.removeItem("sei_provider");
-	} else {
-		localStorage.setItem("sei_provider", ev.provider);
-	}
-	(qa(`button[is="wallet-options"]`) as NodeListOf<WalletOptionsButtonElement>).forEach(elem => {
-		elem.updateProvider(ev.provider, ev.account);
-	});
-	(qa(`button[is="wallet-disconnect"]`) as NodeListOf<WalletDisconnectButtonElement>).forEach(elem => {
-		elem.updateProvider(ev.provider);
-	});
-});
-
 /**
  * Wallet option, automatically created by the {@link WalletModalElement}
  */
@@ -371,7 +375,6 @@ export class WalletModalElement extends WalletModalAutogen {
 				unavailableWallets.push(choiceElem);
 			}
 		}
-		this.refs.plug.hidden = discoveredNativeSeiWallet;
 		(() => {
 			const choiceElem = new WalletChoiceElement();
 			choiceElem.text = "Ethereum-based wallet";
