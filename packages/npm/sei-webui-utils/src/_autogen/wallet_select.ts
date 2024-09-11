@@ -168,13 +168,6 @@ export class WalletModalRefs {
 	constructor(element: HTMLElement | ShadowRoot) {
 		this.#element = element;
 	}
-	#plug?: HTMLDivElement;
-	get plug() {
-		if (this.#plug === undefined) {
-			this.#plug = this.#element.querySelector("[cewt-ref=\"plug\"]:not(:scope [is] *)")!;
-		}
-		return this.#plug;
-	}
 	#choices?: HTMLDivElement;
 	get choices() {
 		if (this.#choices === undefined) {
@@ -187,7 +180,7 @@ let _templateWalletModal: HTMLTemplateElement | null = null;
 function getWalletModalTemplate(): HTMLTemplateElement {
 	if (_templateWalletModal == null) {
 		 _templateWalletModal = document.createElement("template")
-		 _templateWalletModal.innerHTML = "\n\t<h1>Choose wallet</h1>\n\t<div cewt-ref=\"plug\">\n\t\t<p>\n\t\t\tDon\'t have a native Sei wallet installed?\n\t\t</p>\n\t\t<p>\n\t\t\tWe recommend <a href=\"https://www.tailwind.zone/\" target=\"_blank\">Tailwind wallet</a>!\n\t\t\t<i><q>Your Sei wallet from the future.</q></i>\n\t\t</p>\n\t</div>\n\t<form method=\"dialog\">\n\t\t<div cewt-ref=\"choices\" class=\"wallet-choices\">\n\t\t\t<!-- Auto-generated -->\n\t\t</div>\n\t\t<button class=\"small danger\" value=\"\">Cancel</button>\n\t</form>\n";
+		 _templateWalletModal.innerHTML = "\n\t<h1>Choose wallet</h1>\n\t<form method=\"dialog\">\n\t\t<div cewt-ref=\"choices\" class=\"wallet-choices\">\n\t\t\t<!-- Auto-generated -->\n\t\t</div>\n\t\t<button class=\"small danger\" value=\"\">Cancel</button>\n\t</form>\n";
 	}
 	return _templateWalletModal;
 }
