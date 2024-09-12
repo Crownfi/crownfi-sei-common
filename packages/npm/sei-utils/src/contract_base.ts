@@ -3,7 +3,8 @@ import { Addr, ContractVersionInfo } from "./common_sei_types.js";
 import { Coin } from "@cosmjs/amino";
 import semverSatisfies from "semver/functions/satisfies.js";
 import { QueryClient as StargateQueryClient } from "@cosmjs/stargate";
-import { EVMABIFunctionDefinition } from "./evm-interop-utils/index.js";
+import { EVMABIFunctionDefinition, toChecksumAddressEvm } from "./evm-interop-utils/index.js";
+import { stringToCanonicalAddr } from "@crownfi/sei-js-core";
 
 const CONTRACT_INFO_KEY = Buffer.from("contract_info");
 
@@ -50,7 +51,6 @@ export class ContractVersionNotSatisfiedError extends Error {
 		} else {
 			super("The contract at " + contractAddress + " has no version information; perhaps it doesn't exist");
 		}
-
 		this.contractAddress = contractAddress;
 		this.expectedVersions = expectedVersions;
 		this.actualVersionInfo = actualVersionInfo;
@@ -62,7 +62,22 @@ ContractVersionNotSatisfiedError.prototype.name = "ContractVersionNotSatisfiedEr
  * A class which is usually extended upon to generate a contract API
  */
 export class ContractBase<Q extends StargateQueryClient & WasmExtension> {
-	address: Addr;
+	// These properties should be assigned in the constructor as it calls the address setter
+	#evmAddress!: string;
+	#address!: Addr;
+	get address(): Addr {
+		return this.#address;
+	}
+	set address(address: Addr) {
+		this.#address = address;
+		const canonAddr = Buffer.from(stringToCanonicalAddr(address));
+		this.#evmAddress = toChecksumAddressEvm(
+			"0x" + canonAddr.subarray(canonAddr.length - 20).toString("hex")
+		);
+	}
+	get evmAddress(): string {
+		return this.#evmAddress;
+	}
 	endpoint: Q;
 	/**
 	 * @param endpoint The cosmwasm client
@@ -72,6 +87,7 @@ export class ContractBase<Q extends StargateQueryClient & WasmExtension> {
 		this.endpoint = endpoint;
 		this.address = address;
 	}
+	
 	/**
 	 * Reads contract state at key "contract_info" and returnes the parsed state if it exists.
 	 */
