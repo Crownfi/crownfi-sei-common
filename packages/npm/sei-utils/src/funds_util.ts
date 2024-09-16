@@ -146,6 +146,34 @@ export function matchTokenType<T>(
 	}
 }
 
+export type TokenInfoSearchCallback = (
+	queryClient: QueryClient & WasmExtension & SeiEvmExtension & BankExtension,
+	network: string,
+	baseDenom: UnifiedDenom
+) => Partial<UserTokenInfo> | null | undefined | Promise<Partial<UserTokenInfo> | null | undefined>;
+
+const tokenInfoSearchers: Set<TokenInfoSearchCallback> = new Set();
+
+/**
+ * Adds a function that can be used to get token metadata
+ * 
+ * You can remove it later using {@link removeUserTokenInfoSearcher}
+ * 
+ * @param searcher The search function to add
+ */
+export function addUserTokenInfoSearcher(searcher: TokenInfoSearchCallback) {
+	tokenInfoSearchers.add(searcher);
+}
+
+/**
+ * Removes a searcher from the list to use when searching for token metadata
+ * 
+ * @param searcher The search function to add
+ */
+export function removeUserTokenInfoSearcher(searcher: TokenInfoSearchCallback) {
+	tokenInfoSearchers.delete(searcher);
+}
+
 let centralAssetListInfoPromise: Promise<void> | null = null;
 
 /**
@@ -153,6 +181,7 @@ let centralAssetListInfoPromise: Promise<void> | null = null;
  * 
  * If any fields are unspecified, they will be searched for from the following in order of priority:
  * * The "Sei-Public-Goods" centralized asset list
+ * * Functions passed to {@link addUserTokenInfoSearcher}
  * * Metadata returned from the contract (if it's a contract token)
  * * the `denoms_metadata` Sei query (if it's a native token)
  * 
@@ -221,7 +250,7 @@ export async function addUserTokenInfo(
 	await centralAssetListInfoPromise;
 	const unifiedDenom = typeof baseOrPartialTokenInfo == "object" ?
 		baseOrPartialTokenInfo.base : baseOrPartialTokenInfo;
-	const providedInfo: PartialUserTokenInfo = typeof baseOrPartialTokenInfo == "object" ?
+	let providedInfo: PartialUserTokenInfo = typeof baseOrPartialTokenInfo == "object" ?
 		baseOrPartialTokenInfo : {base: baseOrPartialTokenInfo};
 	
 	userTokenInfo[network] = userTokenInfo[network] || {};
@@ -240,10 +269,25 @@ export async function addUserTokenInfo(
 		}
 		return;
 	}
-	
+	const originalProvidedInfo = providedInfo;
+	providedInfo = {...originalProvidedInfo};
+	for (const searcher of tokenInfoSearchers) {
+		if (providedInfo.name && providedInfo.symbol && providedInfo.decimals && providedInfo.icon) {
+			break;
+		}
+		const searcherResult = await searcher(queryClient, network, unifiedDenom);
+		if (searcherResult && (searcherResult.base == null || searcherResult.base == unifiedDenom)) {
+			Object.assign(providedInfo, searcherResult);
+		}
+	}
+	Object.assign(providedInfo, originalProvidedInfo); // original provided info should be prioritized
+
 	await matchTokenType(
 		unifiedDenom,
 		async (wasmAddress) => {
+			if (providedInfo.name && providedInfo.symbol && providedInfo.decimals && providedInfo.icon) {
+				return;
+			}
 			if (!providedInfo.name || !providedInfo.symbol || !providedInfo.decimals) {
 				const {
 					name,
@@ -289,6 +333,9 @@ export async function addUserTokenInfo(
 			}
 		},
 		async (evmAddress) => {
+			if (providedInfo.name && providedInfo.symbol && providedInfo.decimals) {
+				return;
+			}
 			const [
 				[name],
 				[symbol],
@@ -309,6 +356,9 @@ export async function addUserTokenInfo(
 			}
 		},
 		async (denom) => {
+			if (providedInfo.name && providedInfo.symbol && providedInfo.decimals && providedInfo.icon) {
+				return;
+			}
 			const metadata = await queryClient.bank.denomMetadata(denom);
 			providedInfo.base = metadata.base;
 			if (!providedInfo.name) {
