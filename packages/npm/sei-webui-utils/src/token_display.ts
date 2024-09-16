@@ -189,6 +189,9 @@ export class TokenDisplayElement extends HTMLSpanElement {
 					this.#elemName.innerHTML = "&nbsp;" + this.#elemName.innerHTML;
 				}
 				this.#elemName.hidden = false;
+				this.title = "Token Name: " + tokenInfo.name + "\n" +
+					"Base denom: " + denom + "\n" +
+					"Base amount: " + this.amount;
 			} else {
 				(async () => {
 					try {
@@ -210,7 +213,7 @@ export class TokenDisplayElement extends HTMLSpanElement {
 						this.#refreshDisplay();
 					}
 				})();
-				
+				this.title = "";
 			}
 		} else {
 			this.#elemAmount.innerText = this.amount + "";
