@@ -46,6 +46,9 @@ declare global {
 let emittedFirstEvent = false;
 function setNetworkFromUrlHash() {
 	try {
+		if (typeof process != "undefined" && process != null && process.env != null && process.env.CHAIN_ID) {
+			msgBoxIfThrow(setDefaultNetwork.bind(undefined, (process.env.CHAIN_ID as SeiChainId)));
+		}
 		if (!window.location.hash.startsWith("#?")) {
 			return;
 		}
